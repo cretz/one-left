@@ -64,10 +64,10 @@ message HostMessage {
     // Any update to the game state.
     GameUpdate game_update = 3;
     // A chat message is added. This message can occur out of band.
-    ChatMessageAdded chat_update = 4;
-    // Sent when a game is about to start.
+    ChatMessagesAdded chat_update = 4;
+    // Sent to everyone when a game is about to start, but only players need to respond.
     GameStart game_start = 5;
-    // Sent when a hand is about to start.
+    // Sent to everyone when a hand is about to start, but only players need to respond.
     HandStart hand_start = 6;
     // Sent only to players when it is time to shuffle a deck. This is either a deck on start or when the deck is empty
     // and the discard pile sans top card becomes the next deck. This is stage 1 of a mental poker shuffle.
@@ -143,11 +143,9 @@ message HostMessage {
     }
   }
 
-  message ChatMessageAdded {
-    // The chat message, always present.
-    ChatMessage message = 1;
-    // The host's UTC, always non-zero.
-    uint64 utc_ms = 2;
+  message ChatMessagesAdded {
+    // The chat messages, always non-empty.
+    repeated ChatMessage messages = 1;
   }
 
   message GameStart {
@@ -236,6 +234,7 @@ message ChatMessage {
   int64 nonce = 2;
   string contents = 3;
   bytes sig = 4;
+  uint64 host_utc_ms = 5;
 }
 
 message Player {
