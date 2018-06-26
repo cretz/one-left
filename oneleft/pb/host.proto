@@ -21,10 +21,12 @@ message ClientMessage {
       HandStartResponse hand_start_response = 102;
       ShuffleResponse shuffle_response = 103;
       ChooseColorSinceFirstCardIsWildResponse choose_color_since_first_card_is_wild_response = 104;
-      PlayResponse play_response = 105;
-      ShouldChallengeWildDrawFourResponse should_challenge_wild_draw_four_response = 106;
-      RevealCardsForChallengeResponse reveal_cards_for_challenge_response = 107;
-      RevealedCardsForChallengeResponse revealed_cards_for_challenge_response = 108;
+      GetDeckTopDecryptionKeyResponse get_deck_top_decryption_key_response = 105;
+      GiveDeckTopCardResponse give_deck_top_card_response = 106;
+      PlayResponse play_response = 107;
+      ShouldChallengeWildDrawFourResponse should_challenge_wild_draw_four_response = 108;
+      RevealCardsForChallengeResponse reveal_cards_for_challenge_response = 109;
+      RevealedCardsForChallengeResponse revealed_cards_for_challenge_response = 110;
     }
   }
 }
@@ -55,10 +57,12 @@ message HostMessage {
       HandStartRequest hand_start_request = 102;
       ShuffleRequest shuffle_request = 103;
       ChooseColorSinceFirstCardIsWildRequest choose_color_since_first_card_is_wild_request = 104;
-      PlayRequest play_request = 105;
-      ShouldChallengeWildDrawFourRequest should_challenge_wild_draw_four_request = 106;
-      RevealCardsForChallengeRequest reveal_cards_for_challenge_request = 107;
-      RevealedCardsForChallengeRequest revealed_cards_for_challenge_request = 108;
+      GetDeckTopDecryptionKeyRequest get_deck_top_decryption_key_request = 105;
+      GiveDeckTopCardRequest give_deck_top_card_request = 106;
+      PlayRequest play_request = 107;
+      ShouldChallengeWildDrawFourRequest should_challenge_wild_draw_four_request = 108;
+      RevealCardsForChallengeRequest reveal_cards_for_challenge_request = 109;
+      RevealedCardsForChallengeRequest revealed_cards_for_challenge_request = 110;
     }
   }
 

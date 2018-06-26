@@ -4,14 +4,17 @@ import (
 	"log"
 	"math/rand"
 	"testing"
-	"time"
 
 	"github.com/cretz/one-left/oneleft/game"
 )
 
+var benchmarkSomeGamesGlobalCounter int64
+
 func BenchmarkSomeGames(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		seed := time.Now().UnixNano()
+		// seed := time.Now().UnixNano()
+		benchmarkSomeGamesGlobalCounter++
+		seed := benchmarkSomeGamesGlobalCounter
 		rand.Seed(seed)
 		if err := runGame(5); err != nil {
 			b.Fatalf("Failure with seed %v: %v", seed, err)
@@ -20,7 +23,9 @@ func BenchmarkSomeGames(b *testing.B) {
 }
 
 func TestGame(t *testing.T) {
+	rand.Seed(0)
 	// rand.Seed(1529995356611101700)
+	// rand.Seed(time.Now().UnixNano())
 	if err := runGame(5); err != nil {
 		t.Fatal(err)
 	}
@@ -37,7 +42,7 @@ func runGame(playerCount int) error {
 		for _, player := range players {
 			player.(*PracticalPlayer).HandState = handState
 		}
-		return &SimpleDeck{HandState: handState}, nil
+		return &SimpleDeck{HandState: handState, AllPlayers: players}, nil
 	}
 	// Log events
 	logEventCb := func(event *game.Event) error {

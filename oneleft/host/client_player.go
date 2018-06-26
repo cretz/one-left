@@ -110,5 +110,5 @@ func (c *ClientPlayer) ChallengedWildDrawFour(challengerIndex int) (bool, error)
 }
 
 func (c *ClientPlayer) SetOneLeftCallback(justGotOneLeftIndex int, callOneLeft func(target int)) {
-	panic("TODO")
+	// TODO
 }

@@ -19,6 +19,7 @@ type Host struct {
 	chatMessages []*pb.ChatMessage
 	// Never mutated, always replaced
 	lastGameEvent *pb.HostMessage_GameEvent
+	gameRunning   bool
 }
 
 func (h *Host) Stream(stream pb.Host_StreamServer) error {

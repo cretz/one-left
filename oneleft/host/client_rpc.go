@@ -96,6 +96,26 @@ func (c *Client) ChooseColorSinceFirstCardIsWild(
 	return resp.(*pb.ChooseColorSinceFirstCardIsWildResponse), nil
 }
 
+func (c *Client) GetDeckTopDecryptionKey(
+	ctx context.Context, req *pb.GetDeckTopDecryptionKeyRequest,
+) (*pb.GetDeckTopDecryptionKeyResponse, error) {
+	resp, err := c.doRPC(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	return resp.(*pb.GetDeckTopDecryptionKeyResponse), nil
+}
+
+func (c *Client) GiveDeckTopCard(
+	ctx context.Context, req *pb.GiveDeckTopCardRequest,
+) (*pb.GiveDeckTopCardResponse, error) {
+	resp, err := c.doRPC(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	return resp.(*pb.GiveDeckTopCardResponse), nil
+}
+
 func (c *Client) Play(ctx context.Context, req *pb.PlayRequest) (*pb.PlayResponse, error) {
 	resp, err := c.doRPC(ctx, req)
 	if err != nil {
@@ -148,6 +168,14 @@ func hostMessageFromPlayerRequest(req interface{}) (*pb.HostMessage_PlayerReques
 		return &pb.HostMessage_PlayerRequest{
 			Message: &pb.HostMessage_PlayerRequest_ChooseColorSinceFirstCardIsWildRequest{req},
 		}, nil
+	case *pb.GetDeckTopDecryptionKeyRequest:
+		return &pb.HostMessage_PlayerRequest{
+			Message: &pb.HostMessage_PlayerRequest_GetDeckTopDecryptionKeyRequest{req},
+		}, nil
+	case *pb.GiveDeckTopCardRequest:
+		return &pb.HostMessage_PlayerRequest{
+			Message: &pb.HostMessage_PlayerRequest_GiveDeckTopCardRequest{req},
+		}, nil
 	case *pb.PlayRequest:
 		return &pb.HostMessage_PlayerRequest{Message: &pb.HostMessage_PlayerRequest_PlayRequest{req}}, nil
 	case *pb.ShouldChallengeWildDrawFourRequest:
@@ -189,6 +217,14 @@ func playerResponseFromMatchingRequest(req interface{}, resp *pb.ClientMessage_P
 	case *pb.ChooseColorSinceFirstCardIsWildRequest:
 		if respMsg, ok := resp.Message.(*pb.ClientMessage_PlayerResponse_ChooseColorSinceFirstCardIsWildResponse); ok {
 			ret = respMsg.ChooseColorSinceFirstCardIsWildResponse
+		}
+	case *pb.HostMessage_PlayerRequest_GetDeckTopDecryptionKeyRequest:
+		if respMsg, ok := resp.Message.(*pb.ClientMessage_PlayerResponse_GetDeckTopDecryptionKeyResponse); ok {
+			ret = respMsg.GetDeckTopDecryptionKeyResponse
+		}
+	case *pb.HostMessage_PlayerRequest_GiveDeckTopCardRequest:
+		if respMsg, ok := resp.Message.(*pb.ClientMessage_PlayerResponse_GiveDeckTopCardResponse); ok {
+			ret = respMsg.GiveDeckTopCardResponse
 		}
 	case *pb.PlayRequest:
 		if respMsg, ok := resp.Message.(*pb.ClientMessage_PlayerResponse_PlayResponse); ok {

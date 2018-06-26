@@ -118,7 +118,7 @@ func (c Card) Valid() bool {
 type CardDeck interface {
 	CardsRemaining() int
 	Shuffle([]Card) error
-	DealTo(Player) error
+	DealTo(playerIndex int) error
 	PopForFirstDiscard() (Card, error)
 	CompleteHand([]Player) (CardDeckHandCompleteReveal, error)
 }

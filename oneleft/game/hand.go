@@ -51,7 +51,7 @@ func (h *hand) play() (*HandComplete, *GameError) {
 				}
 				// If it wasn't the one with one left, it's a penalty
 				if call.callerIndex != call.targetIndex {
-					if err := h.playerDraw(2, h.game.players[call.targetIndex]); err != nil {
+					if err := h.playerDraw(2, call.targetIndex); err != nil {
 						return nil, err
 					}
 					if err := h.sendPlayerEvent(EventHandPlayerOneLeftPenaltyDrewTwo, call.targetIndex); err != nil {
@@ -63,7 +63,7 @@ func (h *hand) play() (*HandComplete, *GameError) {
 				if err := h.sendCalledOneLeftEvent(call); err != nil {
 					return nil, err
 				}
-				if err := h.playerDraw(2, h.game.players[call.callerIndex]); err != nil {
+				if err := h.playerDraw(2, call.callerIndex); err != nil {
 					return nil, err
 				}
 				if err := h.sendPlayerEvent(EventHandPlayerOneLeftPenaltyDrewTwo, call.callerIndex); err != nil {
@@ -314,10 +314,10 @@ func (h *hand) currentPlayer() Player {
 }
 
 func (h *hand) draw(amount int) *GameError {
-	return h.playerDraw(amount, h.currentPlayer())
+	return h.playerDraw(amount, h.playerIndex)
 }
 
-func (h *hand) playerDraw(amount int, player Player) *GameError {
+func (h *hand) playerDraw(amount int, playerIndex int) *GameError {
 	for i := 0; i < amount; i++ {
 		// If the deck is empty, we have to take the last discard, make that the only discard, and re-shuffle
 		if h.deck.CardsRemaining() == 0 {
@@ -330,7 +330,7 @@ func (h *hand) playerDraw(amount int, player Player) *GameError {
 				return err
 			}
 		}
-		if err := h.deck.DealTo(player); err != nil {
+		if err := h.deck.DealTo(playerIndex); err != nil {
 			return h.playerErrorf("Failed dealing: %v", err)
 		}
 	}

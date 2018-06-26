@@ -9,7 +9,8 @@ import (
 
 type SimpleDeck struct {
 	*HandState
-	Cards []game.Card
+	Cards      []game.Card
+	AllPlayers []game.Player
 }
 
 type SimpleDeckComplete struct {
@@ -32,8 +33,8 @@ func (s *SimpleDeck) Shuffle(cards []game.Card) error {
 	return nil
 }
 
-func (s *SimpleDeck) DealTo(p game.Player) error {
-	player, ok := p.(*PracticalPlayer)
+func (s *SimpleDeck) DealTo(playerIndex int) error {
+	player, ok := s.AllPlayers[playerIndex].(*PracticalPlayer)
 	if !ok {
 		return fmt.Errorf("Unexpected player type to deal to")
 	}

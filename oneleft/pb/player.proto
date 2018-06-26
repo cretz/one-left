@@ -16,6 +16,8 @@ service Player {
   rpc HandEnd(HandEndRequest) returns (HandEndResponse);
   rpc Shuffle(ShuffleRequest) returns (ShuffleResponse);
   rpc ChooseColorSinceFirstCardIsWild(ChooseColorSinceFirstCardIsWildRequest) returns (ChooseColorSinceFirstCardIsWildResponse);
+  rpc GetDeckTopDecryptionKey(GetDeckTopDecryptionKeyRequest) returns (GetDeckTopDecryptionKeyResponse);
+  rpc GiveDeckTopCard(GiveDeckTopCardRequest) returns (GiveDeckTopCardResponse);
   rpc Play(PlayRequest) returns (PlayResponse);
   rpc ShouldChallengeWildDrawFour(ShouldChallengeWildDrawFourRequest) returns (ShouldChallengeWildDrawFourResponse);
   rpc RevealCardsForChallenge(RevealCardsForChallengeRequest) returns (RevealCardsForChallengeResponse);
@@ -102,6 +104,8 @@ message HandEndResponse {
 }
 
 message ShuffleRequest {
+  // Stage 0 is the encrypt-same-key-and-shuffle stage. Stage 1 is the decrypt-one-key-reencrypt-diff-keys stage. Stage
+  // 2 is just the notify-final-set stage.
   uint32 stage = 1;
   // The set of cards this shuffle started with. Never changed. In order of a standard deck on hand start or the
   // discard pile sans top card on discard rotation.
@@ -113,6 +117,7 @@ message ShuffleRequest {
   repeated bytes hand_start_player_sigs = 4;
 }
 message ShuffleResponse {
+  // Only used on stage 0 and 1.
   repeated bytes working_card_set = 1;
 }
 
@@ -120,6 +125,20 @@ message ChooseColorSinceFirstCardIsWildRequest {
 }
 message ChooseColorSinceFirstCardIsWildResponse {
   uint32 color = 1;
+}
+
+message GetDeckTopDecryptionKeyRequest {
+  uint32 for_player_index = 1;
+}
+message GetDeckTopDecryptionKeyResponse {
+  bytes decryption_key = 1;
+}
+
+message GiveDeckTopCardRequest {
+  // Has every key but the player's own
+  repeated bytes decryption_keys = 1;
+}
+message GiveDeckTopCardResponse {
 }
 
 message PlayRequest {
