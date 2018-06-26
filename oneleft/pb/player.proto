@@ -9,6 +9,7 @@ message PlayerIdentity {
 }
 
 service Player {
+  rpc Join(JoinRequest) returns (JoinResponse);
   rpc GameStart(GameStartRequest) returns (GameStartResponse);
   rpc GameEnd(GameEndRequest) returns (GameEndResponse);
   rpc HandStart(HandStartRequest) returns (HandStartResponse);
@@ -19,6 +20,14 @@ service Player {
   rpc ShouldChallengeWildDrawFour(ShouldChallengeWildDrawFourRequest) returns (ShouldChallengeWildDrawFourResponse);
   rpc RevealCardsForChallenge(RevealCardsForChallengeRequest) returns (RevealCardsForChallengeResponse);
   rpc RevealedCardsForChallenge(RevealedCardsForChallengeRequest) returns (RevealedCardsForChallengeResponse);
+}
+
+message JoinRequest {
+  bytes to_sign = 1;
+}
+message JoinResponse {
+  bytes sig = 1;
+  PlayerIdentity player = 2;
 }
 
 message GameStartRequest {

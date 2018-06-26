@@ -10,19 +10,21 @@ service Host {
 message ClientMessage {
   oneof message {
     ChatMessage chat_message = 1;
-    PlayerResponse player_response = 2;
+    bool start_join = 2;
+    PlayerResponse player_response = 3;
   }
 
   message PlayerResponse {
     oneof message {
-      GameStartResponse game_start_response = 100;
-      HandStartResponse hand_start_response = 101;
-      ShuffleResponse shuffle_response = 102;
-      ChooseColorSinceFirstCardIsWildResponse choose_color_since_first_card_is_wild_response = 103;
-      PlayResponse play_response = 104;
-      ShouldChallengeWildDrawFourResponse should_challenge_wild_draw_four_response = 105;
-      RevealCardsForChallengeResponse reveal_cards_for_challenge_response = 106;
-      RevealedCardsForChallengeResponse revealed_cards_for_challenge_response = 107;
+      JoinResponse join_response = 100;
+      GameStartResponse game_start_response = 101;
+      HandStartResponse hand_start_response = 102;
+      ShuffleResponse shuffle_response = 103;
+      ChooseColorSinceFirstCardIsWildResponse choose_color_since_first_card_is_wild_response = 104;
+      PlayResponse play_response = 105;
+      ShouldChallengeWildDrawFourResponse should_challenge_wild_draw_four_response = 106;
+      RevealCardsForChallengeResponse reveal_cards_for_challenge_response = 107;
+      RevealedCardsForChallengeResponse revealed_cards_for_challenge_response = 108;
     }
   }
 }
@@ -41,14 +43,15 @@ message HostMessage {
 
   message PlayerRequest {
     oneof message {
-      GameStartRequest game_start_request = 100;
-      HandStartRequest hand_start_request = 101;
-      ShuffleRequest shuffle_request = 102;
-      ChooseColorSinceFirstCardIsWildRequest choose_color_since_first_card_is_wild_request = 103;
-      PlayRequest play_request = 104;
-      ShouldChallengeWildDrawFourRequest should_challenge_wild_draw_four_request = 105;
-      RevealCardsForChallengeRequest reveal_cards_for_challenge_request = 106;
-      RevealedCardsForChallengeRequest revealed_cards_for_challenge_request = 107;
+      JoinRequest join_request = 100;
+      GameStartRequest game_start_request = 101;
+      HandStartRequest hand_start_request = 102;
+      ShuffleRequest shuffle_request = 103;
+      ChooseColorSinceFirstCardIsWildRequest choose_color_since_first_card_is_wild_request = 104;
+      PlayRequest play_request = 105;
+      ShouldChallengeWildDrawFourRequest should_challenge_wild_draw_four_request = 106;
+      RevealCardsForChallengeRequest reveal_cards_for_challenge_request = 107;
+      RevealedCardsForChallengeRequest revealed_cards_for_challenge_request = 108;
     }
   }
 
