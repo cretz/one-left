@@ -1,0 +1,123 @@
+syntax = "proto3";
+package pb;
+
+import "player.proto";
+
+service Host {
+  rpc Stream(stream ClientMessage) returns (stream HostMessage);
+}
+
+message ClientMessage {
+  oneof message {
+    ChatMessage chat_message = 1;
+    PlayerResponse player_response = 2;
+  }
+
+  message PlayerResponse {
+    oneof message {
+      GameStartResponse game_start_response = 100;
+      HandStartResponse hand_start_response = 101;
+      ShuffleResponse shuffle_response = 102;
+      ChooseColorSinceFirstCardIsWildResponse choose_color_since_first_card_is_wild_response = 103;
+      PlayResponse play_response = 104;
+      ShouldChallengeWildDrawFourResponse should_challenge_wild_draw_four_response = 105;
+      RevealCardsForChallengeResponse reveal_cards_for_challenge_response = 106;
+      RevealedCardsForChallengeResponse revealed_cards_for_challenge_response = 107;
+    }
+  }
+}
+
+message HostMessage {
+  oneof message {
+    Players players_update = 1;
+    ChatMessage chat_message_added = 2;
+    PlayerRequest player_request = 3;
+    Error error = 4;
+  }
+
+  message Players {
+    repeated PlayerIdentity players = 1;
+  }
+
+  message PlayerRequest {
+    oneof message {
+      GameStartRequest game_start_request = 100;
+      HandStartRequest hand_start_request = 101;
+      ShuffleRequest shuffle_request = 102;
+      ChooseColorSinceFirstCardIsWildRequest choose_color_since_first_card_is_wild_request = 103;
+      PlayRequest play_request = 104;
+      ShouldChallengeWildDrawFourRequest should_challenge_wild_draw_four_request = 105;
+      RevealCardsForChallengeRequest reveal_cards_for_challenge_request = 106;
+      RevealedCardsForChallengeRequest revealed_cards_for_challenge_request = 107;
+    }
+  }
+
+  message Error {
+    bytes game_id = 1;
+    string message = 2;
+    int32 player_index = 3;
+    bool terminates_game = 4;
+    bool terminates_stream = 5;
+  }
+
+  message GameEvent {
+    bytes game_id = 1;
+    Type type = 2;
+    repeated uint32 player_scores = 3;
+    uint32 dealer_index = 4;
+    Hand hand = 5;
+    HandComplete hand_complete = 6;
+
+    enum Type {
+      GAME_START = 0;
+      GAME_END = 1;
+      HAND_START_SHUFFLED = 2;
+      HAND_START_CARD_DEALT = 3;
+      HAND_START_TOP_CARD_ADDED_TO_DISCARD = 4;
+      HAND_RESHUFFLED = 5;
+      HAND_PLAYER_SKIPPED = 6;
+      HAND_PLAYER_DREW_TWO = 7;
+      HAND_PLAY_REVERSED = 8;
+      HAND_PLAYER_DREW_ONE = 9;
+      HAND_PLAYER_PLAYED_NOTHING = 10;
+      HAND_PLAYER_DISCARDED = 11;
+      HAND_PLAYER_NO_CHALLENGE_DREW_FOUR = 12;
+      HAND_PLAYER_CHALLENGE_SUCCESS_DREW_FOUR = 13;
+      HAND_PLAYER_CHALLENGE_FAILED_DREW_SIX = 14;
+      HAND_PLAYER_CALLED_ONE_LEFT = 15;
+      HAND_PLAYER_ONE_LEFT_PENALTY_DREW_TWO = 16;
+      HAND_END = 17;
+    }
+
+    message Hand {
+      bytes hand_id = 1;
+      uint32 player_index = 2;
+      repeated uint32 player_cards_remaining = 3;
+      uint32 deck_cards_remaining = 4;
+      repeated uint32 discard_stack = 5;
+      uint32 last_discard_wild_color = 6;
+      bool forward = 7;
+      uint32 one_left_target = 8;
+    }
+
+    message HandComplete {
+      uint32 winner_index = 1;
+      uint32 score = 2;
+      repeated uint32 deck_cards = 3;
+      repeated PlayerCards player_cards = 4;
+
+      message PlayerCards {
+        repeated uint32 player_cards = 1;
+      }
+    }
+  }
+}
+
+message ChatMessage {
+  bytes player_id = 1;
+  string player_name = 2;
+  int64 nonce = 3;
+  string contents = 4;
+  bytes sig = 5;
+  uint64 host_utc_ms = 6;
+}

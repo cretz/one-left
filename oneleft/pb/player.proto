@@ -1,0 +1,155 @@
+syntax = "proto3";
+package pb;
+
+message PlayerIdentity {
+  // ID is pub key
+  bytes id = 1;
+  string name = 2;
+  bytes sig = 4;
+}
+
+service Player {
+  rpc GameStart(GameStartRequest) returns (GameStartResponse);
+  rpc GameEnd(GameEndRequest) returns (GameEndResponse);
+  rpc HandStart(HandStartRequest) returns (HandStartResponse);
+  rpc HandEnd(HandEndRequest) returns (HandEndResponse);
+  rpc Shuffle(ShuffleRequest) returns (ShuffleResponse);
+  rpc ChooseColorSinceFirstCardIsWild(ChooseColorSinceFirstCardIsWildRequest) returns (ChooseColorSinceFirstCardIsWildResponse);
+  rpc Play(PlayRequest) returns (PlayResponse);
+  rpc ShouldChallengeWildDrawFour(ShouldChallengeWildDrawFourRequest) returns (ShouldChallengeWildDrawFourResponse);
+  rpc RevealCardsForChallenge(RevealCardsForChallengeRequest) returns (RevealCardsForChallengeResponse);
+  rpc RevealedCardsForChallenge(RevealedCardsForChallengeRequest) returns (RevealedCardsForChallengeResponse);
+}
+
+message GameStartRequest {
+  // The ID of this new game.
+  bytes id = 1;
+  // The set of players that are participating in this game. Always at least 2.
+  repeated PlayerIdentity players = 3;
+}
+message GameStartResponse {
+  bytes sig = 1;
+}
+
+message GameEndRequest {
+  repeated uint32 player_scores = 1;
+  repeated bytes last_hand_end_player_sigs = 2;
+}
+message GameEndResponse {
+  bytes sig = 1;
+}
+
+message HandStartRequest {
+  // The ID of this hand.
+  bytes id = 1;
+  // The prime that will be used for shuffling during this hand.
+  bytes shared_card_prime = 2;
+  // The scores of the players at the start of this hand.
+  repeated uint32 player_scores = 3;
+  // The index of the dealer for this hand.
+  uint32 dealer_index = 4;
+  // The signatures of the game start binaries for the players.
+  repeated bytes game_start_player_sigs = 5;
+  repeated bytes last_hand_end_player_sigs = 6;
+}
+message HandStartResponse {
+  repeated bytes sig = 1;
+}
+
+message HandEndRequest {
+  // On stage 0, no sig is expected in the response and no player infos are available
+  uint32 stage = 1;
+  uint32 winner_index = 2;
+  uint32 score = 3;
+  repeated bytes encrypted_deck_cards = 4;
+  // Not present on first stage
+  repeated PlayerInfo player_infos = 5;
+
+  message PlayerInfo {
+    // The set of encrypted cards the player holds.
+    repeated bytes encrypted_cards_in_hand = 1;
+    // The set of unencrypted cards the player holds.
+    repeated uint32 unencrypted_cards_in_hand = 2;
+    // The map of all the player's decryption keys for all cards.
+    map<string, bytes> card_decryption_keys = 3;
+    // The score for this player after the hand.
+    uint32 score = 4;
+  }
+}
+message HandEndResponse {
+  oneof message {
+    bytes sig = 1;
+    HandReveal reveal = 2;
+  }
+
+  message HandReveal {
+    // The set of encrypted cards the player holds.
+    repeated bytes encrypted_cards_in_hand = 1;
+    // The set of unencrypted cards the player holds.
+    repeated uint32 unencrypted_cards_in_hand = 2;
+    // The map of all the player's decryption keys for all cards.
+    map<string, bytes> card_decryption_keys = 3;
+  }
+}
+
+message ShuffleRequest {
+  uint32 stage = 1;
+  // The set of cards this shuffle started with. Never changed. In order of a standard deck on hand start or the
+  // discard pile sans top card on discard rotation.
+  repeated uint32 unencrypted_start_cards = 2;
+  // The set of cards to work with. These are encrypted. Stage 0 they are encrypted with one key and shuffled. Stage 1
+  // they are unencrypted from the one key and re-encrypted with a per-card key. Completion, they are just stored.
+  repeated bytes working_card_set = 3;
+  // The set of signatures of the HandStart message for each player.
+  repeated bytes hand_start_player_sigs = 4;
+}
+message ShuffleResponse {
+  repeated bytes working_card_set = 1;
+}
+
+message ChooseColorSinceFirstCardIsWildRequest {
+}
+message ChooseColorSinceFirstCardIsWildResponse {
+  uint32 color = 1;
+}
+
+message PlayRequest {
+}
+message PlayResponse {
+  // The encrypted card to play or empty for no play
+  bytes encrypted_card = 1;
+  // The unencrypted card to play
+  uint32 unencrypted_card = 2;
+  // Everyone's card decryption keys, by player index
+  repeated bytes card_decryption_keys = 3;
+  // 0 if card not wild
+  uint32 wild_color = 4;
+}
+
+message ShouldChallengeWildDrawFourRequest {
+  uint32 prev_color = 1;
+}
+message ShouldChallengeWildDrawFourResponse {
+  bool challenge = 1;
+}
+
+message RevealCardsForChallengeRequest {
+  uint32 prev_color = 1;
+  uint32 challenger_index = 2;
+}
+message RevealCardsForChallengeResponse {
+  repeated bytes encrypted_cards = 1;
+  // Everyone's decryption keys but the challenger's
+  repeated bytes card_decryption_keys = 2;
+  bool challenge_will_succeed = 3;
+}
+
+message RevealedCardsForChallengeRequest {
+  repeated bytes encrypted_cards = 1;
+  // Everyone's decryption keys but the challenger's
+  repeated bytes card_decryption_keys = 2;
+  bool challenge_will_succeed = 3;
+}
+message RevealedCardsForChallengeResponse {
+  bool challenge_succeeded = 1;
+}

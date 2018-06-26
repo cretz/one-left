@@ -19,7 +19,7 @@ const (
 	EventHandPlayerNoChallengeDrewFour
 	EventHandPlayerChallengeSuccessDrewFour
 	EventHandPlayerChallengeFailedDrewSix
-	EventHandOneLeftCalled
+	EventHandPlayerCalledOneLeft
 	EventHandPlayerOneLeftPenaltyDrewTwo
 	EventHandEnd
 )
@@ -38,9 +38,9 @@ var eventTypeNames = map[EventType]string{
 	EventHandPlayerPlayedNothing:            "HandPlayerPlayedNothing",
 	EventHandPlayerDiscarded:                "HandPlayerDiscarded",
 	EventHandPlayerNoChallengeDrewFour:      "HandPlayerNoChallengeDrewFour",
-	EventHandPlayerChallengeSuccessDrewFour: "PlayerChallengeSuccessDrewFour",
-	EventHandPlayerChallengeFailedDrewSix:   "PlayerChallengeFailedDrewSix",
-	EventHandOneLeftCalled:                  "HandOneLeftCalled",
+	EventHandPlayerChallengeSuccessDrewFour: "HandPlayerChallengeSuccessDrewFour",
+	EventHandPlayerChallengeFailedDrewSix:   "HandPlayerChallengeFailedDrewSix",
+	EventHandPlayerCalledOneLeft:            "HandPlayerCalledOneLeft",
 	EventHandPlayerOneLeftPenaltyDrewTwo:    "HandPlayerOneLeftPenaltyDrewTwo",
 	EventHandEnd:                            "HandEnd",
 }

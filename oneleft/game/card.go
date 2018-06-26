@@ -27,6 +27,7 @@ var cardColorNames = map[CardColor]string{
 }
 
 func (c CardColor) String() string { return cardColorNames[c] }
+func (c CardColor) Valid() bool    { return c >= ColorRed && c <= ColorBlue }
 
 func (c Card) Color() CardColor {
 	if c >= 100 {

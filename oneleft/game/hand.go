@@ -46,7 +46,7 @@ func (h *hand) play() (*HandComplete, *GameError) {
 		case call := <-oneLeftCallbackChan:
 			// If it's called on a pending one-left, check it
 			if call.targetIndex == playerIndexJustGotOneLeft {
-				if err := h.sendOneLeftCalledEvent(EventHandOneLeftCalled, call); err != nil {
+				if err := h.sendCalledOneLeftEvent(call); err != nil {
 					return nil, err
 				}
 				// If it wasn't the one with one left, it's a penalty
@@ -60,7 +60,7 @@ func (h *hand) play() (*HandComplete, *GameError) {
 				}
 			} else if call.callerIndex == call.targetIndex && h.game.players[call.callerIndex].CardsRemaining() != 1 {
 				// It was called for myself out of turn when I didn't have one left
-				if err := h.sendOneLeftCalledEvent(EventHandOneLeftCalled, call); err != nil {
+				if err := h.sendCalledOneLeftEvent(call); err != nil {
 					return nil, err
 				}
 				if err := h.playerDraw(2, h.game.players[call.callerIndex]); err != nil {
@@ -253,7 +253,9 @@ func (h *hand) createDiscardWithFirstCard() *GameError {
 		case Wild:
 			// Wild means first player gets to choose
 			if h.lastWildColor, err = h.currentPlayer().ChooseColorSinceFirstCardIsWild(); err != nil {
-				return h.playerErrorf("Failure to get color for first wild from %v: %v", err)
+				return h.playerErrorf("Failure to get color for first wild: %v", err)
+			} else if !h.lastWildColor.Valid() {
+				return h.playerErrorf("Invalid color value %v for first wild: %v", h.lastWildColor, err)
 			}
 			// Do this after the color is selected
 			if err := h.sendEvent(EventHandStartTopCardAddedToDiscard); err != nil {
@@ -397,14 +399,14 @@ func (h *hand) sendPlayerEvent(typ EventType, playerIndexOverride int) *GameErro
 	return h.game.sendEvent(typ, state, nil)
 }
 
-func (h *hand) sendOneLeftCalledEvent(typ EventType, call oneLeftCall) *GameError {
+func (h *hand) sendCalledOneLeftEvent(call oneLeftCall) *GameError {
 	if h.game.eventCb == nil {
 		return nil
 	}
 	state := h.eventState()
 	state.PlayerIndex = call.callerIndex
 	state.OneLeftTarget = call.targetIndex
-	return h.game.sendEvent(typ, state, nil)
+	return h.game.sendEvent(EventHandPlayerCalledOneLeft, state, nil)
 }
 
 func (h *hand) eventState() *EventHand {

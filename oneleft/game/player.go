@@ -23,8 +23,8 @@ func (p *PlayerPlay) AssertValid() error {
 		return fmt.Errorf("Unknown card number from raw value %v", p.Card)
 	} else if p.Card < 100 && p.WildColor != 0 {
 		return fmt.Errorf("Wild color set on non-wild card")
-	} else if p.WildColor < 0 || p.WildColor > 3 {
-		return fmt.Errorf("Unknown wild color %v", p.WildColor)
+	} else if !p.WildColor.Valid() {
+		return fmt.Errorf("Invalid wild color %v", p.WildColor)
 	}
 	return nil
 }
