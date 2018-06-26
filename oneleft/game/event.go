@@ -19,6 +19,8 @@ const (
 	EventHandPlayerNoChallengeDrewFour
 	EventHandPlayerChallengeSuccessDrewFour
 	EventHandPlayerChallengeFailedDrewSix
+	EventHandOneLeftCalled
+	EventHandPlayerOneLeftPenaltyDrewTwo
 	EventHandEnd
 )
 
@@ -37,4 +39,5 @@ type EventHand struct {
 	DiscardStack         []Card
 	LastDiscardWildColor int
 	Forward              bool
+	OneLeftTarget        int
 }

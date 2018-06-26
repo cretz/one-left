@@ -9,6 +9,11 @@ type hand struct {
 	forward       bool
 }
 
+type oneLeftCall struct {
+	callerIndex int
+	targetIndex int
+}
+
 type HandComplete struct {
 	WinnerIndex int
 	Score       int
@@ -22,22 +27,73 @@ func (h *hand) play() (*HandComplete, *GameError) {
 	if err := h.createDiscardWithFirstCard(); err != nil {
 		return nil, err
 	}
+	playerIndexJustGotOneLeft := -1
+	oneLeftCallbackChan := h.resetOneLeftCallbacks(-1, nil)
 	// Main game loop
 	for {
-		// Do play
-		play, err := h.currentPlayer().Play()
+		// Do play or one-left call, whichever first
+		playCh := make(chan *PlayerPlay, 1)
+		errCh := make(chan error, 1)
+		go func() {
+			if play, err := h.currentPlayer().Play(); err != nil {
+				errCh <- err
+			} else {
+				playCh <- play
+			}
+		}()
+		var play *PlayerPlay
+		select {
+		case call := <-oneLeftCallbackChan:
+			// If it's called on a pending one-left, check it
+			if call.targetIndex == playerIndexJustGotOneLeft {
+				h.sendOneLeftCalledEvent(EventHandOneLeftCalled, call)
+				// If it wasn't the one with one left, it's a penalty
+				if call.callerIndex != call.targetIndex {
+					if err := h.playerDraw(2, h.game.players[call.targetIndex]); err != nil {
+						return nil, err
+					}
+					h.sendPlayerEvent(EventHandPlayerOneLeftPenaltyDrewTwo, call.targetIndex)
+				}
+			} else if call.callerIndex == call.targetIndex && h.game.players[call.callerIndex].CardsRemaining() != 1 {
+				// It was called for myself out of turn when I didn't have one left
+				h.sendOneLeftCalledEvent(EventHandOneLeftCalled, call)
+				if err := h.playerDraw(2, h.game.players[call.callerIndex]); err != nil {
+					return nil, err
+				}
+				h.sendPlayerEvent(EventHandPlayerOneLeftPenaltyDrewTwo, call.callerIndex)
+			}
+		case play = <-playCh:
+			// All good, do nothing
+		case err := <-errCh:
+			return nil, h.playerErrorf("Failure to play: %v", err)
+		}
+		// Reset one left if there was a player with it
+		if playerIndexJustGotOneLeft >= 0 {
+			playerIndexJustGotOneLeft = -1
+			oneLeftCallbackChan = h.resetOneLeftCallbacks(playerIndexJustGotOneLeft, oneLeftCallbackChan)
+		}
+		// If play was not set because one-left was called, wait for it
+		if play == nil {
+			select {
+			case play = <-playCh:
+				// All good, do nothing
+			case err := <-errCh:
+				return nil, h.playerErrorf("Failure to play: %v", err)
+			}
+		}
 		// Draw if necessary
-		if err == nil && play.Card == NoCard {
+		if play.Card == NoCard {
 			if err := h.draw(1); err != nil {
 				return nil, err
 			}
 			h.sendEvent(EventHandPlayerDrewOne)
 			// Let the player try again to play it
-			play, err = h.currentPlayer().Play()
+			var err error
+			if play, err = h.currentPlayer().Play(); err != nil {
+				return nil, h.playerErrorf("Failure to play: %v", err)
+			}
 		}
-		if err != nil {
-			return nil, h.playerErrorf("Failure to play: %v", err)
-		} else if err = play.AssertValid(); err != nil {
+		if err := play.AssertValid(); err != nil {
 			return nil, h.playerErrorf("Invalid play: %v", err)
 		} else if play.Card == NoCard {
 			h.sendEvent(EventHandPlayerPlayedNothing)
@@ -47,6 +103,11 @@ func (h *hand) play() (*HandComplete, *GameError) {
 			// Otherwise, handle discard
 			h.discard = append(h.discard, play.Card)
 			h.lastWildColor = play.WildColor
+			// If this player now has one left, set up the opportunity
+			if h.currentPlayer().CardsRemaining() == 1 {
+				playerIndexJustGotOneLeft = h.playerIndex
+				oneLeftCallbackChan = h.resetOneLeftCallbacks(playerIndexJustGotOneLeft, oneLeftCallbackChan)
+			}
 			h.sendEvent(EventHandPlayerDiscarded)
 			// Handle play
 			switch play.Card.Value() {
@@ -76,6 +137,12 @@ func (h *hand) play() (*HandComplete, *GameError) {
 				} else if success, err := h.currentPlayer().ChallengedWildDrawFour(h.peekNextPlayer()); err != nil {
 					return nil, h.playerErrorf("Failure during challenge: %v", err)
 				} else if success {
+					// If this was a one-left player, we have to undo what we did with that
+					if playerIndexJustGotOneLeft >= 0 {
+						playerIndexJustGotOneLeft = -1
+						oneLeftCallbackChan = h.resetOneLeftCallbacks(playerIndexJustGotOneLeft, oneLeftCallbackChan)
+					}
+					// Make the current player draw four
 					if err := h.draw(4); err != nil {
 						return nil, err
 					}
@@ -191,6 +258,10 @@ func (h *hand) currentPlayer() Player {
 }
 
 func (h *hand) draw(amount int) *GameError {
+	return h.playerDraw(amount, h.currentPlayer())
+}
+
+func (h *hand) playerDraw(amount int, player Player) *GameError {
 	for i := 0; i < amount; i++ {
 		// If the deck is empty, we have to take the last discard, make that the only discard, and re-shuffle
 		if h.deck.CardsRemaining() == 0 {
@@ -201,7 +272,7 @@ func (h *hand) draw(amount int) *GameError {
 			h.discard = []Card{h.discard[0]}
 			h.sendEvent(EventHandReshuffled)
 		}
-		if err := h.deck.DealTo(h.currentPlayer()); err != nil {
+		if err := h.deck.DealTo(player); err != nil {
 			return h.playerErrorf("Failed dealing: %v", err)
 		}
 	}
@@ -210,18 +281,6 @@ func (h *hand) draw(amount int) *GameError {
 
 func (h *hand) topCard() Card {
 	return h.discard[len(h.discard)-1]
-}
-
-// if last param is err, it is cause
-func (h *hand) playerErrorf(format string, args ...interface{}) *GameError {
-	err := h.errorf(format, args...)
-	err.Player = h.currentPlayer()
-	return err
-}
-
-// if last param is err, it is cause
-func (h *hand) errorf(format string, args ...interface{}) *GameError {
-	return h.game.errorf(format, args...)
 }
 
 func (h *hand) checkComplete() (*HandComplete, *GameError) {
@@ -247,11 +306,56 @@ func (h *hand) checkComplete() (*HandComplete, *GameError) {
 	return complete, nil
 }
 
+func (h *hand) resetOneLeftCallbacks(hasOneLeftIndex int, oldOneLeftCallbackChan chan oneLeftCall) chan oneLeftCall {
+	ret := make(chan oneLeftCall, len(h.game.players))
+	for i, player := range h.game.players {
+		playerIndex := i
+		player.SetOneLeftCallback(hasOneLeftIndex, func(targetIndex int) {
+			ret <- oneLeftCall{callerIndex: playerIndex, targetIndex: targetIndex}
+		})
+	}
+	if oldOneLeftCallbackChan != nil {
+		close(oldOneLeftCallbackChan)
+	}
+	return ret
+}
+
+// if last param is err, it is cause
+func (h *hand) playerErrorf(format string, args ...interface{}) *GameError {
+	err := h.errorf(format, args...)
+	err.Player = h.currentPlayer()
+	return err
+}
+
+// if last param is err, it is cause
+func (h *hand) errorf(format string, args ...interface{}) *GameError {
+	return h.game.errorf(format, args...)
+}
+
 func (h *hand) sendEvent(typ EventType) {
 	if h.game.eventChan == nil {
 		return
 	}
 	h.game.sendEvent(typ, h.eventState(), nil)
+}
+
+func (h *hand) sendPlayerEvent(typ EventType, playerIndexOverride int) {
+	if h.game.eventChan == nil {
+		return
+	}
+	state := h.eventState()
+	state.PlayerIndex = playerIndexOverride
+	h.game.sendEvent(typ, state, nil)
+}
+
+func (h *hand) sendOneLeftCalledEvent(typ EventType, call oneLeftCall) {
+	if h.game.eventChan == nil {
+		return
+	}
+	state := h.eventState()
+	state.PlayerIndex = call.callerIndex
+	state.OneLeftTarget = call.targetIndex
+	h.game.sendEvent(typ, state, nil)
 }
 
 func (h *hand) eventState() *EventHand {
@@ -262,6 +366,7 @@ func (h *hand) eventState() *EventHand {
 		DiscardStack:         make([]Card, len(h.discard)),
 		LastDiscardWildColor: h.lastWildColor,
 		Forward:              h.forward,
+		OneLeftTarget:        -1,
 	}
 	for i, player := range h.game.players {
 		hand.PlayerCardsRemaining[i] = player.CardsRemaining()

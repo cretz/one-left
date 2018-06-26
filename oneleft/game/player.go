@@ -9,6 +9,7 @@ type Player interface {
 	Play() (*PlayerPlay, error)
 	ShouldChallengeWildDrawFour() (bool, error)
 	ChallengedWildDrawFour(challenger Player) (bool, error)
+	SetOneLeftCallback(justGotOneLeftIndex int, callOneLeft func(target int))
 }
 
 type PlayerPlay struct {
