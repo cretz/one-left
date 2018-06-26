@@ -24,7 +24,7 @@ func (c *Client) doRPC(ctx context.Context, req interface{}) (interface{}, error
 	c.receivedRespErrCh = respErrCh
 	c.reqRespLock.Unlock()
 	// Send the request
-	c.sendReqCh <- sendMsg
+	c.sendCh <- &pb.HostMessage{Message: &pb.HostMessage_PlayerRequest_{sendMsg}}
 	// Wait for response
 	ctx, cancelFn := context.WithTimeout(ctx, maxClientRPCWaitTime)
 	defer cancelFn()

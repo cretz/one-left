@@ -31,10 +31,17 @@ message ClientMessage {
 
 message HostMessage {
   oneof message {
-    Players players_update = 1;
-    ChatMessage chat_message_added = 2;
-    PlayerRequest player_request = 3;
-    Error error = 4;
+    Welcome welcome = 1;
+    Players players_update = 2;
+    ChatMessage chat_message_added = 3;
+    PlayerRequest player_request = 4;
+    Error error = 5;
+  }
+
+  message Welcome {
+    repeated PlayerIdentity players = 1;
+    repeated ChatMessage chat_messages = 2;
+    GameEvent last_game_event = 3;
   }
 
   message Players {
@@ -119,7 +126,7 @@ message HostMessage {
 message ChatMessage {
   bytes player_id = 1;
   string player_name = 2;
-  int64 nonce = 3;
+  uint32 counter = 3;
   string contents = 4;
   bytes sig = 5;
   uint64 host_utc_ms = 6;
