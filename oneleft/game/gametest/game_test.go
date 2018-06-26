@@ -40,11 +40,13 @@ func runGame(playerCount int) error {
 		return &SimpleDeck{HandState: handState}, nil
 	}
 	// Log events
-	loggedEventCh := startEventLogger()
-	defer close(loggedEventCh)
+	logEventCb := func(event *game.Event) error {
+		debugf("Event: %v - Hand: %v", event, event.Hand)
+		return nil
+	}
 	// Begin
 	debugf("------- New game -------")
-	gameComplete, gameError := game.New(players, newDeck, loggedEventCh).Play(0)
+	gameComplete, gameError := game.New(players, newDeck, logEventCb).Play(0)
 	if gameError != nil {
 		debugf("ERR: %v", gameError)
 		return gameError
@@ -53,20 +55,10 @@ func runGame(playerCount int) error {
 	return nil
 }
 
-const debug = false
+const debug = true
 
 func debugf(format string, args ...interface{}) {
 	if debug {
 		log.Printf(format, args...)
 	}
-}
-
-func startEventLogger() chan *game.Event {
-	loggedEventCh := make(chan *game.Event)
-	go func() {
-		for event := range loggedEventCh {
-			debugf("Event: %v - Hand: %v", event, event.Hand)
-		}
-	}()
-	return loggedEventCh
 }

@@ -46,21 +46,29 @@ func (h *hand) play() (*HandComplete, *GameError) {
 		case call := <-oneLeftCallbackChan:
 			// If it's called on a pending one-left, check it
 			if call.targetIndex == playerIndexJustGotOneLeft {
-				h.sendOneLeftCalledEvent(EventHandOneLeftCalled, call)
+				if err := h.sendOneLeftCalledEvent(EventHandOneLeftCalled, call); err != nil {
+					return nil, err
+				}
 				// If it wasn't the one with one left, it's a penalty
 				if call.callerIndex != call.targetIndex {
 					if err := h.playerDraw(2, h.game.players[call.targetIndex]); err != nil {
 						return nil, err
 					}
-					h.sendPlayerEvent(EventHandPlayerOneLeftPenaltyDrewTwo, call.targetIndex)
+					if err := h.sendPlayerEvent(EventHandPlayerOneLeftPenaltyDrewTwo, call.targetIndex); err != nil {
+						return nil, err
+					}
 				}
 			} else if call.callerIndex == call.targetIndex && h.game.players[call.callerIndex].CardsRemaining() != 1 {
 				// It was called for myself out of turn when I didn't have one left
-				h.sendOneLeftCalledEvent(EventHandOneLeftCalled, call)
+				if err := h.sendOneLeftCalledEvent(EventHandOneLeftCalled, call); err != nil {
+					return nil, err
+				}
 				if err := h.playerDraw(2, h.game.players[call.callerIndex]); err != nil {
 					return nil, err
 				}
-				h.sendPlayerEvent(EventHandPlayerOneLeftPenaltyDrewTwo, call.callerIndex)
+				if err := h.sendPlayerEvent(EventHandPlayerOneLeftPenaltyDrewTwo, call.callerIndex); err != nil {
+					return nil, err
+				}
 			}
 		case play = <-playCh:
 			// All good, do nothing
@@ -86,7 +94,9 @@ func (h *hand) play() (*HandComplete, *GameError) {
 			if err := h.draw(1); err != nil {
 				return nil, err
 			}
-			h.sendEvent(EventHandPlayerDrewOne)
+			if err := h.sendEvent(EventHandPlayerDrewOne); err != nil {
+				return nil, err
+			}
 			// Let the player try again to play it
 			var err error
 			if play, err = h.currentPlayer().Play(); err != nil {
@@ -96,7 +106,9 @@ func (h *hand) play() (*HandComplete, *GameError) {
 		if err := play.AssertValid(); err != nil {
 			return nil, h.playerErrorf("Invalid play: %v", err)
 		} else if play.Card == NoCard {
-			h.sendEvent(EventHandPlayerPlayedNothing)
+			if err := h.sendEvent(EventHandPlayerPlayedNothing); err != nil {
+				return nil, err
+			}
 		} else if !play.Card.CanPlayOn(h.topCard(), h.lastWildColor) {
 			return nil, h.playerErrorf("Invalid card, tried to play %v on %v", play.Card, h.topCard())
 		} else {
@@ -108,21 +120,29 @@ func (h *hand) play() (*HandComplete, *GameError) {
 				playerIndexJustGotOneLeft = h.playerIndex
 				oneLeftCallbackChan = h.resetOneLeftCallbacks(playerIndexJustGotOneLeft)
 			}
-			h.sendEvent(EventHandPlayerDiscarded)
+			if err := h.sendEvent(EventHandPlayerDiscarded); err != nil {
+				return nil, err
+			}
 			// Handle play
 			switch play.Card.Value() {
 			case Skip:
 				h.moveNextPlayer()
-				h.sendEvent(EventHandPlayerSkipped)
+				if err := h.sendEvent(EventHandPlayerSkipped); err != nil {
+					return nil, err
+				}
 			case Reverse:
 				h.forward = !h.forward
-				h.sendEvent(EventHandPlayReversed)
+				if err := h.sendEvent(EventHandPlayReversed); err != nil {
+					return nil, err
+				}
 			case DrawTwo:
 				h.moveNextPlayer()
 				if err := h.draw(2); err != nil {
 					return nil, err
 				}
-				h.sendEvent(EventHandPlayerDrewTwo)
+				if err := h.sendEvent(EventHandPlayerDrewTwo); err != nil {
+					return nil, err
+				}
 			case WildDrawFour:
 				// Before moving, we need to see if they want to challenge
 				if challenge, err := h.peekNextPlayer().ShouldChallengeWildDrawFour(); err != nil {
@@ -133,7 +153,9 @@ func (h *hand) play() (*HandComplete, *GameError) {
 					if err := h.draw(4); err != nil {
 						return nil, err
 					}
-					h.sendEvent(EventHandPlayerNoChallengeDrewFour)
+					if err := h.sendEvent(EventHandPlayerNoChallengeDrewFour); err != nil {
+						return nil, err
+					}
 				} else if success, err := h.currentPlayer().ChallengedWildDrawFour(h.peekNextPlayer()); err != nil {
 					return nil, h.playerErrorf("Failure during challenge: %v", err)
 				} else if success {
@@ -146,13 +168,17 @@ func (h *hand) play() (*HandComplete, *GameError) {
 					if err := h.draw(4); err != nil {
 						return nil, err
 					}
-					h.sendEvent(EventHandPlayerChallengeSuccessDrewFour)
+					if err := h.sendEvent(EventHandPlayerChallengeSuccessDrewFour); err != nil {
+						return nil, err
+					}
 				} else {
 					h.moveNextPlayer()
 					if err := h.draw(6); err != nil {
 						return nil, err
 					}
-					h.sendEvent(EventHandPlayerChallengeFailedDrewSix)
+					if err := h.sendEvent(EventHandPlayerChallengeFailedDrewSix); err != nil {
+						return nil, err
+					}
 				}
 			}
 		}
@@ -169,7 +195,9 @@ func (h *hand) shuffleAndDeal() *GameError {
 	if err := h.deck.Shuffle(nil); err != nil {
 		return h.errorf("Failed shuffling: %v", err)
 	}
-	h.sendEvent(EventHandStartShuffled)
+	if err := h.sendEvent(EventHandStartShuffled); err != nil {
+		return err
+	}
 	// Deal to all players
 	for i := 0; i < 7; i++ {
 		for j := 0; j < len(h.game.players); j++ {
@@ -177,7 +205,9 @@ func (h *hand) shuffleAndDeal() *GameError {
 			if err := h.draw(1); err != nil {
 				return err
 			}
-			h.sendEvent(EventHandStartCardDealt)
+			if err := h.sendEvent(EventHandStartCardDealt); err != nil {
+				return err
+			}
 		}
 	}
 	return nil
@@ -194,33 +224,51 @@ func (h *hand) createDiscardWithFirstCard() *GameError {
 		// Action cards have effects at the beginning
 		switch v := topCard.Value(); v {
 		case Skip:
-			h.sendEvent(EventHandStartTopCardAddedToDiscard)
-			h.sendEvent(EventHandPlayerSkipped)
+			if err := h.sendEvent(EventHandStartTopCardAddedToDiscard); err != nil {
+				return err
+			}
+			if err := h.sendEvent(EventHandPlayerSkipped); err != nil {
+				return err
+			}
 			h.moveNextPlayer()
 		case DrawTwo:
-			h.sendEvent(EventHandStartTopCardAddedToDiscard)
+			if err := h.sendEvent(EventHandStartTopCardAddedToDiscard); err != nil {
+				return err
+			}
 			if err := h.draw(2); err != nil {
 				return err
 			}
-			h.sendEvent(EventHandPlayerDrewTwo)
+			if err := h.sendEvent(EventHandPlayerDrewTwo); err != nil {
+				return err
+			}
 			h.moveNextPlayer()
 		case Reverse:
-			h.sendEvent(EventHandStartTopCardAddedToDiscard)
+			if err := h.sendEvent(EventHandStartTopCardAddedToDiscard); err != nil {
+				return err
+			}
 			h.forward = !h.forward
-			h.sendEvent(EventHandPlayReversed)
+			if err := h.sendEvent(EventHandPlayReversed); err != nil {
+				return err
+			}
 		case Wild:
 			// Wild means first player gets to choose
 			if h.lastWildColor, err = h.currentPlayer().ChooseColorSinceFirstCardIsWild(); err != nil {
 				return h.playerErrorf("Failure to get color for first wild from %v: %v", err)
 			}
 			// Do this after the color is selected
-			h.sendEvent(EventHandStartTopCardAddedToDiscard)
+			if err := h.sendEvent(EventHandStartTopCardAddedToDiscard); err != nil {
+				return err
+			}
 		case WildDrawFour:
 			// Can't be wild draw four
-			h.sendEvent(EventHandStartTopCardAddedToDiscard)
+			if err := h.sendEvent(EventHandStartTopCardAddedToDiscard); err != nil {
+				return err
+			}
 			continue
 		default:
-			h.sendEvent(EventHandStartTopCardAddedToDiscard)
+			if err := h.sendEvent(EventHandStartTopCardAddedToDiscard); err != nil {
+				return err
+			}
 		}
 		return nil
 	}
@@ -272,7 +320,9 @@ func (h *hand) playerDraw(amount int, player Player) *GameError {
 				return h.errorf("Failed shuffling: %v", err)
 			}
 			h.discard = []Card{h.discard[len(h.discard)-1]}
-			h.sendEvent(EventHandReshuffled)
+			if err := h.sendEvent(EventHandReshuffled); err != nil {
+				return err
+			}
 		}
 		if err := h.deck.DealTo(player); err != nil {
 			return h.playerErrorf("Failed dealing: %v", err)
@@ -322,7 +372,7 @@ func (h *hand) resetOneLeftCallbacks(hasOneLeftIndex int) chan oneLeftCall {
 // if last param is err, it is cause
 func (h *hand) playerErrorf(format string, args ...interface{}) *GameError {
 	err := h.errorf(format, args...)
-	err.Player = h.currentPlayer()
+	err.PlayerIndex = h.playerIndex
 	return err
 }
 
@@ -331,30 +381,30 @@ func (h *hand) errorf(format string, args ...interface{}) *GameError {
 	return h.game.errorf(format, args...)
 }
 
-func (h *hand) sendEvent(typ EventType) {
-	if h.game.eventChan == nil {
-		return
+func (h *hand) sendEvent(typ EventType) *GameError {
+	if h.game.eventCb == nil {
+		return nil
 	}
-	h.game.sendEvent(typ, h.eventState(), nil)
+	return h.game.sendEvent(typ, h.eventState(), nil)
 }
 
-func (h *hand) sendPlayerEvent(typ EventType, playerIndexOverride int) {
-	if h.game.eventChan == nil {
-		return
+func (h *hand) sendPlayerEvent(typ EventType, playerIndexOverride int) *GameError {
+	if h.game.eventCb == nil {
+		return nil
 	}
 	state := h.eventState()
 	state.PlayerIndex = playerIndexOverride
-	h.game.sendEvent(typ, state, nil)
+	return h.game.sendEvent(typ, state, nil)
 }
 
-func (h *hand) sendOneLeftCalledEvent(typ EventType, call oneLeftCall) {
-	if h.game.eventChan == nil {
-		return
+func (h *hand) sendOneLeftCalledEvent(typ EventType, call oneLeftCall) *GameError {
+	if h.game.eventCb == nil {
+		return nil
 	}
 	state := h.eventState()
 	state.PlayerIndex = call.callerIndex
 	state.OneLeftTarget = call.targetIndex
-	h.game.sendEvent(typ, state, nil)
+	return h.game.sendEvent(typ, state, nil)
 }
 
 func (h *hand) eventState() *EventHand {

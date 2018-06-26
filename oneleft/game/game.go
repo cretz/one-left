@@ -3,9 +3,9 @@ package game
 import "fmt"
 
 type Game struct {
-	players   []Player
-	newDeck   func() (CardDeck, error)
-	eventChan chan<- *Event
+	players []Player
+	newDeck func() (CardDeck, error)
+	eventCb func(*Event) error
 
 	dealerIndex  int
 	hand         *hand
@@ -13,9 +13,9 @@ type Game struct {
 }
 
 type GameError struct {
-	Message string
-	Cause   error
-	Player  Player
+	Message     string
+	Cause       error
+	PlayerIndex int
 }
 
 func (h *GameError) Error() string { return h.Message }
@@ -24,14 +24,16 @@ type GameComplete struct {
 	PlayerScores []int
 }
 
-func New(players []Player, newDeck func() (CardDeck, error), eventChan chan<- *Event) *Game {
-	return &Game{players: players, newDeck: newDeck, eventChan: eventChan}
+func New(players []Player, newDeck func() (CardDeck, error), eventCb func(*Event) error) *Game {
+	return &Game{players: players, newDeck: newDeck, eventCb: eventCb}
 }
 
 func (g *Game) Play(initialDealerIndex int) (*GameComplete, *GameError) {
 	g.dealerIndex = initialDealerIndex
 	g.playerScores = make([]int, len(g.players))
-	g.sendEvent(EventGameStart, nil, nil)
+	if err := g.sendEvent(EventGameStart, nil, nil); err != nil {
+		return nil, err
+	}
 	// Play until someone gets 500
 	for {
 		// Create the hand
@@ -62,7 +64,9 @@ func (g *Game) Play(initialDealerIndex int) (*GameComplete, *GameError) {
 			g.dealerIndex = 0
 		}
 	}
-	g.sendEvent(EventGameEnd, nil, nil)
+	if err := g.sendEvent(EventGameEnd, nil, nil); err != nil {
+		return nil, err
+	}
 	return &GameComplete{PlayerScores: g.playerScores}, nil
 }
 
@@ -77,9 +81,9 @@ func (g *Game) errorf(format string, args ...interface{}) *GameError {
 	return ret
 }
 
-func (g *Game) sendEvent(typ EventType, hand *EventHand, handComplete *HandComplete) {
-	if g.eventChan == nil {
-		return
+func (g *Game) sendEvent(typ EventType, hand *EventHand, handComplete *HandComplete) *GameError {
+	if g.eventCb == nil {
+		return nil
 	}
 	event := &Event{
 		Type:         typ,
@@ -89,5 +93,8 @@ func (g *Game) sendEvent(typ EventType, hand *EventHand, handComplete *HandCompl
 		HandComplete: handComplete,
 	}
 	copy(event.PlayerScores, g.playerScores)
-	g.eventChan <- event
+	if err := g.eventCb(event); err != nil {
+		return g.errorf("Failed sending event %v: %v", typ, err)
+	}
+	return nil
 }
