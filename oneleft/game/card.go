@@ -111,6 +111,10 @@ func (c Card) String() string {
 	return c.Color().String() + "-" + v.String()
 }
 
+func (c Card) Valid() bool {
+	return c >= 0 && c <= 107
+}
+
 type CardDeck interface {
 	CardsRemaining() int
 	Shuffle([]Card) error

@@ -30,7 +30,7 @@ func runGame(playerCount int) error {
 	// Build deck and players
 	players := make([]game.Player, playerCount)
 	for i := 0; i < len(players); i++ {
-		players[i] = &PracticalPlayer{Index: i}
+		players[i] = &PracticalPlayer{Index: i, AllPlayers: players}
 	}
 	newDeck := func() (game.CardDeck, error) {
 		handState := &HandState{}
@@ -55,7 +55,7 @@ func runGame(playerCount int) error {
 	return nil
 }
 
-const debug = true
+const debug = false
 
 func debugf(format string, args ...interface{}) {
 	if debug {

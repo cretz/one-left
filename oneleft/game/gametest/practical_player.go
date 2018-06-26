@@ -14,7 +14,8 @@ type HandState struct {
 
 type PracticalPlayer struct {
 	*HandState
-	Index int
+	Index      int
+	AllPlayers []game.Player
 	// Randomized
 	Cards []game.Card
 }
@@ -68,8 +69,8 @@ func (p *PracticalPlayer) ShouldChallengeWildDrawFour() (bool, error) {
 	return false, nil
 }
 
-func (p *PracticalPlayer) ChallengedWildDrawFour(challenger game.Player) (bool, error) {
-	if _, ok := challenger.(*PracticalPlayer); !ok {
+func (p *PracticalPlayer) ChallengedWildDrawFour(challengerIndex int) (bool, error) {
+	if _, ok := p.AllPlayers[challengerIndex].(*PracticalPlayer); !ok {
 		return false, fmt.Errorf("Other player is not same player type")
 	}
 	return false, nil

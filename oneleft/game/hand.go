@@ -156,7 +156,7 @@ func (h *hand) play() (*HandComplete, *GameError) {
 					if err := h.sendEvent(EventHandPlayerNoChallengeDrewFour); err != nil {
 						return nil, err
 					}
-				} else if success, err := h.currentPlayer().ChallengedWildDrawFour(h.peekNextPlayer()); err != nil {
+				} else if success, err := h.currentPlayer().ChallengedWildDrawFour(h.peekNextPlayerIndex()); err != nil {
 					return nil, h.playerErrorf("Failure during challenge: %v", err)
 				} else if success {
 					// If this was a one-left player, we have to undo what we did with that
@@ -276,17 +276,21 @@ func (h *hand) createDiscardWithFirstCard() *GameError {
 	}
 }
 
-func (h *hand) peekNextPlayer() Player {
+func (h *hand) peekNextPlayerIndex() int {
 	if h.forward {
 		if h.playerIndex == len(h.game.players)-1 {
-			return h.game.players[0]
+			return 0
 		}
-		return h.game.players[h.playerIndex+1]
+		return h.playerIndex + 1
 	}
 	if h.playerIndex == 0 {
-		return h.game.players[len(h.game.players)-1]
+		return len(h.game.players) - 1
 	}
-	return h.game.players[h.playerIndex-1]
+	return h.playerIndex - 1
+}
+
+func (h *hand) peekNextPlayer() Player {
+	return h.game.players[h.peekNextPlayerIndex()]
 }
 
 func (h *hand) moveNextPlayer() {

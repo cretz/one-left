@@ -8,7 +8,7 @@ type Player interface {
 	// Card can be -1 (DrawCard)
 	Play() (*PlayerPlay, error)
 	ShouldChallengeWildDrawFour() (bool, error)
-	ChallengedWildDrawFour(challenger Player) (bool, error)
+	ChallengedWildDrawFour(challengerIndex int) (bool, error)
 	SetOneLeftCallback(justGotOneLeftIndex int, callOneLeft func(target int))
 }
 
