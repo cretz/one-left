@@ -1,26 +1,64 @@
 package game
 
+import (
+	"strconv"
+)
+
 // There are four groups of 25. Inside each group is 0-9, 1-9, skip, rev, and draw two in that order. After those 100
 // there are 4 wilds and four wild draw four
 type Card int
 
 const NoCard Card = -1
 
-// -1 if wild
-func (c Card) Color() int {
+type CardColor int
+
+const ColorUnknown CardColor = -1
+const ColorRed CardColor = 0
+const ColorYellow CardColor = 1
+const ColorGreen CardColor = 2
+const ColorBlue CardColor = 3
+
+var cardColorNames = map[CardColor]string{
+	ColorUnknown: "Unknown",
+	ColorRed:     "Red",
+	ColorYellow:  "Yellow",
+	ColorGreen:   "Green",
+	ColorBlue:    "Blue",
+}
+
+func (c CardColor) String() string { return cardColorNames[c] }
+
+func (c Card) Color() CardColor {
 	if c >= 100 {
-		return -1
+		return ColorUnknown
 	}
-	return int(c / 25)
+	return CardColor(c / 25)
 }
 
 type CardValue int
 
-const Skip = 10
-const Reverse = 11
-const DrawTwo = 12
-const Wild = 13
-const WildDrawFour = 14
+const Skip CardValue = 10
+const Reverse CardValue = 11
+const DrawTwo CardValue = 12
+const Wild CardValue = 13
+const WildDrawFour CardValue = 14
+
+func (c CardValue) String() string {
+	switch c {
+	case Skip:
+		return "Skip"
+	case Reverse:
+		return "Reverse"
+	case DrawTwo:
+		return "DrawTwo"
+	case Wild:
+		return "Wild"
+	case WildDrawFour:
+		return "WildDrawFour"
+	default:
+		return strconv.Itoa(int(c))
+	}
+}
 
 func (c Card) Value() CardValue {
 	switch value := c % 25; {
@@ -46,7 +84,7 @@ func (c Card) Wild() bool {
 	return v == Wild || v == WildDrawFour
 }
 
-func (c Card) CanPlayOn(other Card, lastWildColor int) bool {
+func (c Card) CanPlayOn(other Card, lastWildColor CardColor) bool {
 	return c.Wild() ||
 		c.Value() == other.Value() ||
 		c.Color() == other.Color() ||
@@ -62,6 +100,14 @@ func (c Card) Score() int {
 	default:
 		return int(v)
 	}
+}
+
+func (c Card) String() string {
+	v := c.Value()
+	if v == Wild || v == WildDrawFour {
+		return v.String()
+	}
+	return c.Color().String() + "-" + v.String()
 }
 
 type CardDeck interface {

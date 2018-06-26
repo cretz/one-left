@@ -5,7 +5,7 @@ type hand struct {
 	deck          CardDeck
 	playerIndex   int
 	discard       []Card
-	lastWildColor int
+	lastWildColor CardColor
 	forward       bool
 }
 
@@ -28,7 +28,7 @@ func (h *hand) play() (*HandComplete, *GameError) {
 		return nil, err
 	}
 	playerIndexJustGotOneLeft := -1
-	oneLeftCallbackChan := h.resetOneLeftCallbacks(-1, nil)
+	oneLeftCallbackChan := h.resetOneLeftCallbacks(-1)
 	// Main game loop
 	for {
 		// Do play or one-left call, whichever first
@@ -70,7 +70,7 @@ func (h *hand) play() (*HandComplete, *GameError) {
 		// Reset one left if there was a player with it
 		if playerIndexJustGotOneLeft >= 0 {
 			playerIndexJustGotOneLeft = -1
-			oneLeftCallbackChan = h.resetOneLeftCallbacks(playerIndexJustGotOneLeft, oneLeftCallbackChan)
+			oneLeftCallbackChan = h.resetOneLeftCallbacks(playerIndexJustGotOneLeft)
 		}
 		// If play was not set because one-left was called, wait for it
 		if play == nil {
@@ -106,7 +106,7 @@ func (h *hand) play() (*HandComplete, *GameError) {
 			// If this player now has one left, set up the opportunity
 			if h.currentPlayer().CardsRemaining() == 1 {
 				playerIndexJustGotOneLeft = h.playerIndex
-				oneLeftCallbackChan = h.resetOneLeftCallbacks(playerIndexJustGotOneLeft, oneLeftCallbackChan)
+				oneLeftCallbackChan = h.resetOneLeftCallbacks(playerIndexJustGotOneLeft)
 			}
 			h.sendEvent(EventHandPlayerDiscarded)
 			// Handle play
@@ -140,7 +140,7 @@ func (h *hand) play() (*HandComplete, *GameError) {
 					// If this was a one-left player, we have to undo what we did with that
 					if playerIndexJustGotOneLeft >= 0 {
 						playerIndexJustGotOneLeft = -1
-						oneLeftCallbackChan = h.resetOneLeftCallbacks(playerIndexJustGotOneLeft, oneLeftCallbackChan)
+						oneLeftCallbackChan = h.resetOneLeftCallbacks(playerIndexJustGotOneLeft)
 					}
 					// Make the current player draw four
 					if err := h.draw(4); err != nil {
@@ -210,7 +210,7 @@ func (h *hand) createDiscardWithFirstCard() *GameError {
 			h.sendEvent(EventHandPlayReversed)
 		case Wild:
 			// Wild means first player gets to choose
-			if h.lastWildColor, err = h.currentPlayer().ChooseColorSinceFirstFirstCardIsWild(); err != nil {
+			if h.lastWildColor, err = h.currentPlayer().ChooseColorSinceFirstCardIsWild(); err != nil {
 				return h.playerErrorf("Failure to get color for first wild from %v: %v", err)
 			}
 			// Do this after the color is selected
@@ -219,6 +219,8 @@ func (h *hand) createDiscardWithFirstCard() *GameError {
 			// Can't be wild draw four
 			h.sendEvent(EventHandStartTopCardAddedToDiscard)
 			continue
+		default:
+			h.sendEvent(EventHandStartTopCardAddedToDiscard)
 		}
 		return nil
 	}
@@ -269,7 +271,7 @@ func (h *hand) playerDraw(amount int, player Player) *GameError {
 			if err := h.deck.Shuffle(h.discard[:len(h.discard)-1]); err != nil {
 				return h.errorf("Failed shuffling: %v", err)
 			}
-			h.discard = []Card{h.discard[0]}
+			h.discard = []Card{h.discard[len(h.discard)-1]}
 			h.sendEvent(EventHandReshuffled)
 		}
 		if err := h.deck.DealTo(player); err != nil {
@@ -306,16 +308,13 @@ func (h *hand) checkComplete() (*HandComplete, *GameError) {
 	return complete, nil
 }
 
-func (h *hand) resetOneLeftCallbacks(hasOneLeftIndex int, oldOneLeftCallbackChan chan oneLeftCall) chan oneLeftCall {
+func (h *hand) resetOneLeftCallbacks(hasOneLeftIndex int) chan oneLeftCall {
 	ret := make(chan oneLeftCall, len(h.game.players))
 	for i, player := range h.game.players {
 		playerIndex := i
 		player.SetOneLeftCallback(hasOneLeftIndex, func(targetIndex int) {
 			ret <- oneLeftCall{callerIndex: playerIndex, targetIndex: targetIndex}
 		})
-	}
-	if oldOneLeftCallbackChan != nil {
-		close(oldOneLeftCallbackChan)
 	}
 	return ret
 }

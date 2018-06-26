@@ -24,6 +24,29 @@ const (
 	EventHandEnd
 )
 
+var eventTypeNames = map[EventType]string{
+	EventGameStart:                          "GameStart",
+	EventGameEnd:                            "GameEnd",
+	EventHandStartShuffled:                  "HandStartShuffled",
+	EventHandStartCardDealt:                 "HandStartCardDealt",
+	EventHandStartTopCardAddedToDiscard:     "HandStartTopCardAddedToDiscard",
+	EventHandReshuffled:                     "HandReshuffled",
+	EventHandPlayerSkipped:                  "HandPlayerSkipped",
+	EventHandPlayerDrewTwo:                  "HandPlayerDrewTwo",
+	EventHandPlayReversed:                   "HandPlayReversed",
+	EventHandPlayerDrewOne:                  "HandPlayerDrewOne",
+	EventHandPlayerPlayedNothing:            "HandPlayerPlayedNothing",
+	EventHandPlayerDiscarded:                "HandPlayerDiscarded",
+	EventHandPlayerNoChallengeDrewFour:      "HandPlayerNoChallengeDrewFour",
+	EventHandPlayerChallengeSuccessDrewFour: "PlayerChallengeSuccessDrewFour",
+	EventHandPlayerChallengeFailedDrewSix:   "PlayerChallengeFailedDrewSix",
+	EventHandOneLeftCalled:                  "HandOneLeftCalled",
+	EventHandPlayerOneLeftPenaltyDrewTwo:    "HandPlayerOneLeftPenaltyDrewTwo",
+	EventHandEnd:                            "HandEnd",
+}
+
+func (e EventType) String() string { return eventTypeNames[e] }
+
 type Event struct {
 	Type         EventType
 	PlayerScores []int
@@ -37,7 +60,7 @@ type EventHand struct {
 	PlayerCardsRemaining []int
 	DeckCardsRemaining   int
 	DiscardStack         []Card
-	LastDiscardWildColor int
+	LastDiscardWildColor CardColor
 	Forward              bool
 	OneLeftTarget        int
 }

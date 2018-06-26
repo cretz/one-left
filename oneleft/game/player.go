@@ -4,7 +4,7 @@ import "fmt"
 
 type Player interface {
 	CardsRemaining() int
-	ChooseColorSinceFirstFirstCardIsWild() (int, error)
+	ChooseColorSinceFirstCardIsWild() (CardColor, error)
 	// Card can be -1 (DrawCard)
 	Play() (*PlayerPlay, error)
 	ShouldChallengeWildDrawFour() (bool, error)
@@ -13,8 +13,9 @@ type Player interface {
 }
 
 type PlayerPlay struct {
-	Card      Card
-	WildColor int
+	Card Card
+	// Leave as unset (0) when card is not wild
+	WildColor CardColor
 }
 
 func (p *PlayerPlay) AssertValid() error {
