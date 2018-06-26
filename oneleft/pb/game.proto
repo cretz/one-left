@@ -231,15 +231,16 @@ message HostMessage {
 
 message ChatMessage {
   bytes player_id = 1;
-  int64 nonce = 2;
-  string contents = 3;
-  bytes sig = 4;
-  uint64 host_utc_ms = 5;
+  string player_name = 2;
+  int64 nonce = 3;
+  string contents = 4;
+  bytes sig = 5;
+  uint64 host_utc_ms = 6;
 }
 
 message Player {
+  // ID is pub key
   bytes id = 1;
-  bytes pub_key = 2;
-  string name = 3;
+  string name = 2;
   bytes sig = 4;
 }
