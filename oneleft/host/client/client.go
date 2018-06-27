@@ -128,6 +128,8 @@ MainLoop:
 		case err = <-recvErrCh:
 			break MainLoop
 		case err = <-c.terminatingErrCh:
+			// Before terminating, let's try to send an error
+			// TODO
 			break MainLoop
 		}
 	}
@@ -151,7 +153,7 @@ func (c *Client) SendNonBlocking(msg *pb.HostMessage) error {
 	return nil
 }
 
-func (c *Client) Fail(err error) error {
+func (c *Client) FailNonBlocking(err error) error {
 	c.chLock.RLock()
 	defer c.chLock.RUnlock()
 	if c.terminatingErrCh == nil {

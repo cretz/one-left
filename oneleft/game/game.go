@@ -72,7 +72,7 @@ func (g *Game) Play(initialDealerIndex int) (*GameComplete, *GameError) {
 
 // if last param is err, it is cause
 func Errorf(format string, args ...interface{}) *GameError {
-	ret := &GameError{Message: fmt.Sprintf(format, args...)}
+	ret := &GameError{Message: fmt.Sprintf(format, args...), PlayerIndex: -1}
 	if len(args) > 0 {
 		if cause, ok := args[len(args)-1].(error); ok {
 			ret.Cause = cause

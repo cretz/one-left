@@ -8,6 +8,9 @@ import (
 )
 
 func (c *Client) doRPC(ctx context.Context, req interface{}) (interface{}, error) {
+	if !c.Running() {
+		return nil, fmt.Errorf("Client not running")
+	}
 	sendMsg, err := hostMessageFromPlayerRequest(req)
 	if err != nil {
 		return nil, err

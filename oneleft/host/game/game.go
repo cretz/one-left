@@ -42,6 +42,13 @@ func New(eventHandler EventHandler, players []*PlayerInfo) *Game {
 	return ret
 }
 
+func (g *Game) Player(index int) *PlayerInfo {
+	if index < 0 || index >= len(g.players) {
+		return nil
+	}
+	return g.players[index].PlayerInfo
+}
+
 func (g *Game) Play() (*game.GameComplete, error) {
 	// Mark as running (don't unmark when done)
 	g.dataLock.Lock()
@@ -256,4 +263,23 @@ func (g *Game) newDeck() (game.CardDeck, error) {
 		return nil, err
 	}
 	return newDeck(g, info)
+}
+
+func (g *Game) MakePbError(err error) *pb.HostMessage_Error {
+	return &pb.HostMessage_Error{
+		GameId:         g.id[:],
+		Message:        err.Error(),
+		PlayerIndex:    int32(findErrPlayerIndex(err)),
+		TerminatesGame: true,
+	}
+}
+
+func findErrPlayerIndex(err error) int {
+	if gameErr, ok := err.(*game.GameError); !ok {
+		return -1
+	} else if parentIndex := findErrPlayerIndex(gameErr.Cause); parentIndex != -1 {
+		return parentIndex
+	} else {
+		return gameErr.PlayerIndex
+	}
 }
