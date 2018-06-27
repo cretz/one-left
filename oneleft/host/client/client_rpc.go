@@ -1,15 +1,11 @@
-package host
+package client
 
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/cretz/one-left/oneleft/pb"
 )
-
-// TODO: config
-const maxClientRPCWaitTime = 1 * time.Minute
 
 func (c *Client) doRPC(ctx context.Context, req interface{}) (interface{}, error) {
 	sendMsg, err := hostMessageFromPlayerRequest(req)
@@ -24,9 +20,11 @@ func (c *Client) doRPC(ctx context.Context, req interface{}) (interface{}, error
 	c.receivedRespErrCh = respErrCh
 	c.reqRespLock.Unlock()
 	// Send the request
-	c.sendCh <- &pb.HostMessage{Message: &pb.HostMessage_PlayerRequest_{sendMsg}}
+	if err = c.SendNonBlocking(&pb.HostMessage{Message: &pb.HostMessage_PlayerRequest_{sendMsg}}); err != nil {
+		return nil, err
+	}
 	// Wait for response
-	ctx, cancelFn := context.WithTimeout(ctx, maxClientRPCWaitTime)
+	ctx, cancelFn := context.WithTimeout(ctx, c.maxRPCWaitTime)
 	defer cancelFn()
 	select {
 	case <-ctx.Done():
