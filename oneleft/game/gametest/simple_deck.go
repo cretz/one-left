@@ -52,9 +52,9 @@ func (s *SimpleDeck) PopForFirstDiscard() (game.Card, error) {
 	return s.TopDiscard, nil
 }
 
-func (s *SimpleDeck) CompleteHand(players []game.Player) (game.CardDeckHandCompleteReveal, error) {
+func (s *SimpleDeck) CompleteHand() (game.CardDeckHandCompleteReveal, error) {
 	ret := &SimpleDeckComplete{}
-	for _, player := range players {
+	for _, player := range s.AllPlayers {
 		if p, ok := player.(*PracticalPlayer); !ok {
 			return nil, fmt.Errorf("Unexpected player type")
 		} else {

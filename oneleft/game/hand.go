@@ -353,7 +353,7 @@ func (h *hand) checkComplete() (*HandComplete, *GameError) {
 		return nil, nil
 	}
 	var err error
-	if complete.DeckReveal, err = h.deck.CompleteHand(h.game.players); err != nil {
+	if complete.DeckReveal, err = h.deck.CompleteHand(); err != nil {
 		return nil, Errorf("Failed revealing deck: %v", err)
 	}
 	for _, cards := range complete.DeckReveal.PlayerCards() {

@@ -68,12 +68,13 @@ message HandStartResponse {
 }
 
 message HandEndRequest {
-  // On stage 0, no sig is expected in the response and no player infos are available
+  // On stage 0, no sig is expected in the response and no player infos or score is available
   uint32 stage = 1;
   uint32 winner_index = 2;
+  // Always 0 on stage 0. Otherwise, it's the score for just this hand
   uint32 score = 3;
   repeated bytes encrypted_deck_cards = 4;
-  // Not present on first stage
+  // Empty on stage 0
   repeated PlayerInfo player_infos = 5;
 
   message PlayerInfo {
@@ -81,7 +82,7 @@ message HandEndRequest {
     repeated bytes encrypted_cards_in_hand = 1;
     // The set of unencrypted cards the player holds.
     repeated uint32 unencrypted_cards_in_hand = 2;
-    // The map of all the player's decryption keys for all cards.
+    // The map of all the player's decryption keys for all cards. Key is big int string.
     map<string, bytes> card_decryption_keys = 3;
     // The score for this player after the hand.
     uint32 score = 4;
@@ -98,7 +99,7 @@ message HandEndResponse {
     repeated bytes encrypted_cards_in_hand = 1;
     // The set of unencrypted cards the player holds.
     repeated uint32 unencrypted_cards_in_hand = 2;
-    // The map of all the player's decryption keys for all cards.
+    // The map of all the player's decryption keys for all cards. Key is big int string.
     map<string, bytes> card_decryption_keys = 3;
   }
 }
@@ -128,7 +129,8 @@ message ChooseColorSinceFirstCardIsWildResponse {
 }
 
 message GetDeckTopDecryptionKeyRequest {
-  uint32 for_player_index = 1;
+  // Is -1 when we're just turning over the top card
+  int32 for_player_index = 1;
 }
 message GetDeckTopDecryptionKeyResponse {
   bytes decryption_key = 1;

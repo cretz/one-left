@@ -120,7 +120,7 @@ type CardDeck interface {
 	Shuffle([]Card) error
 	DealTo(playerIndex int) error
 	PopForFirstDiscard() (Card, error)
-	CompleteHand([]Player) (CardDeckHandCompleteReveal, error)
+	CompleteHand() (CardDeckHandCompleteReveal, error)
 }
 
 type CardDeckHandCompleteReveal interface {

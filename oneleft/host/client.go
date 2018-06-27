@@ -3,6 +3,7 @@ package host
 import (
 	"sync"
 
+	"github.com/cretz/bine/torutil/ed25519"
 	"github.com/cretz/one-left/oneleft/pb"
 )
 
@@ -46,4 +47,9 @@ func (c *Client) PlayerID() []byte {
 	c.playerLock.RLock()
 	defer c.playerLock.RUnlock()
 	return c.playerID
+}
+
+func (c *Client) VerifySig(contents []byte, sig []byte) bool {
+	// The ID is an ed25519 pub key
+	return ed25519.PublicKey(c.playerID).Verify(contents, sig)
 }

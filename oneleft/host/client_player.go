@@ -14,6 +14,7 @@ type ClientPlayer struct {
 	cardCount int
 	index     int
 	currGame  *Game
+	score     int
 }
 
 func (c *ClientPlayer) CardsRemaining() int { return c.cardCount }
@@ -42,6 +43,11 @@ func (c *ClientPlayer) Play() (*game.PlayerPlay, error) {
 		// We need to verify that the deck has seen all decryption keys but this players' index
 		bigKeys[i] = new(big.Int).SetBytes(decKey)
 	}
+	// Make sure it was given to them in the first place, and remove it
+	if i, ok := c.currGame.deck.encryptedCardsHeldByPlayers[bigCard.String()]; !ok || i != c.index {
+		return nil, fmt.Errorf("Card was never given to player")
+	}
+	delete(c.currGame.deck.encryptedCardsHeldByPlayers, bigCard.String())
 	// Decrypt the card
 	card, err := c.currGame.deck.decryptCard(bigCard, bigKeys)
 	if err != nil {
