@@ -48,7 +48,7 @@ func (c *ClientPlayer) Play() (*game.PlayerPlay, error) {
 		return nil, err
 	}
 	// We verify that we've seen all decryption keys *except* the one playing here to prevent spoofing
-	seenKeys := c.currGame.deck.seenDecryptionKeys[card]
+	seenKeys := c.currGame.deck.seenDecryptionKeys[bigCard.String()]
 	if len(seenKeys) != len(bigKeys) {
 		return nil, fmt.Errorf("Invalid decryption key set size")
 	}
@@ -60,7 +60,7 @@ func (c *ClientPlayer) Play() (*game.PlayerPlay, error) {
 		}
 	}
 	// Update the decryption keys so the full set it present
-	c.currGame.deck.seenDecryptionKeys[card] = bigKeys
+	c.currGame.deck.seenDecryptionKeys[bigCard.String()] = bigKeys
 	return &game.PlayerPlay{Card: card, WildColor: game.CardColor(resp.WildColor)}, nil
 }
 
@@ -96,8 +96,8 @@ func (c *ClientPlayer) ChallengedWildDrawFour(challengerIndex int) (bool, error)
 	}
 	themResp, err := c.client.RevealedCardsForChallenge(context.Background(), themReq)
 	if err != nil {
-		// TODO: we have the blame messed up because game logic will think this player screwed up when it was the other
-		return false, err
+		// This reassigns blame for the error
+		return false, game.PlayerErrorf(challengerIndex, "%v", err)
 	}
 	// We both have to agree on whether the challenge was successful. This is just one of those human things in the
 	// game though we could of course overcome it at the cost of exposing the cards to the host or more complicated

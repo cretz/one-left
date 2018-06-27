@@ -193,7 +193,7 @@ func (h *hand) play() (*HandComplete, *GameError) {
 func (h *hand) shuffleAndDeal() *GameError {
 	// Shuffle full deck
 	if err := h.deck.Shuffle(nil); err != nil {
-		return h.errorf("Failed shuffling: %v", err)
+		return Errorf("Failed shuffling: %v", err)
 	}
 	if err := h.sendEvent(EventHandStartShuffled); err != nil {
 		return err
@@ -218,7 +218,7 @@ func (h *hand) createDiscardWithFirstCard() *GameError {
 	for {
 		topCard, err := h.deck.PopForFirstDiscard()
 		if err != nil {
-			return h.errorf("Unable to put top deck card on discard pile: %v", err)
+			return Errorf("Unable to put top deck card on discard pile: %v", err)
 		}
 		h.discard = append(h.discard, topCard)
 		// Action cards have effects at the beginning
@@ -323,7 +323,7 @@ func (h *hand) playerDraw(amount int, playerIndex int) *GameError {
 		if h.deck.CardsRemaining() == 0 {
 			// TODO: what if all the players have all the cards?
 			if err := h.deck.Shuffle(h.discard[:len(h.discard)-1]); err != nil {
-				return h.errorf("Failed shuffling: %v", err)
+				return Errorf("Failed shuffling: %v", err)
 			}
 			h.discard = []Card{h.discard[len(h.discard)-1]}
 			if err := h.sendEvent(EventHandReshuffled); err != nil {
@@ -354,7 +354,7 @@ func (h *hand) checkComplete() (*HandComplete, *GameError) {
 	}
 	var err error
 	if complete.DeckReveal, err = h.deck.CompleteHand(h.game.players); err != nil {
-		return nil, h.errorf("Failed revealing deck: %v", err)
+		return nil, Errorf("Failed revealing deck: %v", err)
 	}
 	for _, cards := range complete.DeckReveal.PlayerCards() {
 		for _, card := range cards {
@@ -377,14 +377,9 @@ func (h *hand) resetOneLeftCallbacks(hasOneLeftIndex int) chan oneLeftCall {
 
 // if last param is err, it is cause
 func (h *hand) playerErrorf(format string, args ...interface{}) *GameError {
-	err := h.errorf(format, args...)
+	err := Errorf(format, args...)
 	err.PlayerIndex = h.playerIndex
 	return err
-}
-
-// if last param is err, it is cause
-func (h *hand) errorf(format string, args ...interface{}) *GameError {
-	return h.game.errorf(format, args...)
 }
 
 func (h *hand) sendEvent(typ EventType) *GameError {

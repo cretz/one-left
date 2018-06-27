@@ -39,7 +39,7 @@ func (g *Game) Play(initialDealerIndex int) (*GameComplete, *GameError) {
 		// Create the hand
 		deck, err := g.newDeck()
 		if err != nil {
-			return nil, g.errorf("Failed creating deck: %v", err)
+			return nil, Errorf("Failed creating deck: %v", err)
 		}
 		hand := &hand{
 			game:        g,
@@ -71,7 +71,7 @@ func (g *Game) Play(initialDealerIndex int) (*GameComplete, *GameError) {
 }
 
 // if last param is err, it is cause
-func (g *Game) errorf(format string, args ...interface{}) *GameError {
+func Errorf(format string, args ...interface{}) *GameError {
 	ret := &GameError{Message: fmt.Sprintf(format, args...)}
 	if len(args) > 0 {
 		if cause, ok := args[len(args)-1].(error); ok {
@@ -79,6 +79,12 @@ func (g *Game) errorf(format string, args ...interface{}) *GameError {
 		}
 	}
 	return ret
+}
+
+func PlayerErrorf(playerIndex int, format string, args ...interface{}) *GameError {
+	err := Errorf(format, args...)
+	err.PlayerIndex = playerIndex
+	return err
 }
 
 func (g *Game) sendEvent(typ EventType, hand *EventHand, handComplete *HandComplete) *GameError {
@@ -94,7 +100,7 @@ func (g *Game) sendEvent(typ EventType, hand *EventHand, handComplete *HandCompl
 	}
 	copy(event.PlayerScores, g.playerScores)
 	if err := g.eventCb(event); err != nil {
-		return g.errorf("Failed sending event %v: %v", typ, err)
+		return Errorf("Failed sending event %v: %v", typ, err)
 	}
 	return nil
 }

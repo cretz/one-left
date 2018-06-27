@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"sync"
 
 	"github.com/cretz/one-left/oneleft/game"
 	"github.com/cretz/one-left/oneleft/pb"
@@ -12,11 +13,12 @@ import (
 type Deck struct {
 	game        *Game
 	sharedPrime *big.Int
-	// TODO: we really need to check this at the end
-	seenDecryptionKeys    map[game.Card][]*big.Int
+	// Keyed by orig encrypted card big.int serialized to string
+	seenDecryptionKeys    map[string][]*big.Int
 	handStartPlayerSigs   [][]byte
 	unencryptedStartCards []game.Card
-	encryptedCards        []*big.Int
+	// Byte arrays are just big.Int bytes
+	encryptedCards []*big.Int
 }
 
 func (d *Deck) decryptCard(card *big.Int, decryptionKeys []*big.Int) (game.Card, error) {
@@ -30,12 +32,6 @@ func (d *Deck) decryptCard(card *big.Int, decryptionKeys []*big.Int) (game.Card,
 	}
 	return 0, fmt.Errorf("Decryption failed, resulting card: %v", card)
 }
-
-/*CardsRemaining() int
-Shuffle([]Card) error
-DealTo(Player) error
-PopForFirstDiscard() (Card, error)
-CompleteHand([]Player) (CardDeckHandCompleteReveal, error)*/
 
 func (d *Deck) CardsRemaining() int { return len(d.encryptedCards) }
 
@@ -63,21 +59,21 @@ func (d *Deck) Shuffle(startCards []game.Card) error {
 	}
 	// Pass it around
 	ctx := context.Background()
-	for _, player := range d.game.players {
+	for playerIndex, player := range d.game.players {
 		resp, err := player.client.Shuffle(ctx, req)
 		if err != nil {
-			// TODO: enforce blame
-			return err
+			// This assigns blame for the error
+			return game.PlayerErrorf(playerIndex, "Failed shuffle stage 0: %v", err)
 		}
 		req.WorkingCardSet = resp.WorkingCardSet
 	}
 	// Pass around again for stage 1
 	req.Stage = 1
-	for _, player := range d.game.players {
+	for playerIndex, player := range d.game.players {
 		resp, err := player.client.Shuffle(ctx, req)
 		if err != nil {
-			// TODO: enforce blame
-			return err
+			// This assigns blame for the error
+			return game.PlayerErrorf(playerIndex, "Failed shuffle stage 1: %v", err)
 		}
 		req.WorkingCardSet = resp.WorkingCardSet
 	}
@@ -86,10 +82,10 @@ func (d *Deck) Shuffle(startCards []game.Card) error {
 	}
 	// Pass around at end just so they can record the result
 	req.Stage = 2
-	for _, player := range d.game.players {
+	for playerIndex, player := range d.game.players {
 		if _, err := player.client.Shuffle(ctx, req); err != nil {
-			// TODO: enforce blame
-			return err
+			// This assigns blame for the error
+			return game.PlayerErrorf(playerIndex, "Failed shuffle stage 2: %v", err)
 		}
 	}
 	// Now store the new encrypted deck
@@ -101,11 +97,64 @@ func (d *Deck) Shuffle(startCards []game.Card) error {
 }
 
 func (d *Deck) DealTo(playerIndex int) error {
-	panic("TODO")
+	// Grab all decryption keys except this one
+	_, decryptionKeys, err := d.popTopCardForDeal(playerIndex)
+	if err != nil {
+		return err
+	}
+	// Now send off to the player as a deal
+	giveReq := &pb.GiveDeckTopCardRequest{DecryptionKeys: make([][]byte, len(d.game.players))}
+	for i, decryptionKey := range decryptionKeys {
+		giveReq.DecryptionKeys[i] = decryptionKey.Bytes()
+	}
+	_, err = d.game.players[playerIndex].client.GiveDeckTopCard(context.Background(), giveReq)
+	return err
+}
+
+// This also updates seen decryption keys...do not mutate the result. Doesn't give encryption keys for playerIndex or
+// gives em all if playerIndex out of player array bounds.
+func (d *Deck) popTopCardForDeal(playerIndex int) (topCard *big.Int, decryptionKeys []*big.Int, err error) {
+	decryptionKeys = make([]*big.Int, len(d.game.players))
+	getTopReq := &pb.GetDeckTopDecryptionKeyRequest{ForPlayerIndex: uint32(playerIndex)}
+	ctx, cancelFn := context.WithCancel(context.Background())
+	defer cancelFn()
+	// Ask all players except curr one for the top-card decryption...do async, first err fails
+	errCh := make(chan error, len(d.game.players))
+	var wg sync.WaitGroup
+	for i, p := range d.game.players {
+		if i != playerIndex {
+			wg.Add(1)
+			go func(playerIndex int, player *ClientPlayer) {
+				defer wg.Done()
+				if resp, err := player.client.GetDeckTopDecryptionKey(ctx, getTopReq); err != nil {
+					errCh <- game.PlayerErrorf(playerIndex, "Failed getting dec key: %v", err)
+				} else {
+					decryptionKeys[playerIndex] = new(big.Int).SetBytes(resp.DecryptionKey)
+				}
+			}(i, p)
+		}
+	}
+	// Wait for complete or err
+	doneCh := make(chan struct{}, 1)
+	go func() { wg.Wait(); doneCh <- struct{}{} }()
+	select {
+	case err = <-errCh:
+	case <-doneCh:
+		// Pop the top card and set the seen decryption keys
+		topCard = d.encryptedCards[len(d.encryptedCards)-1]
+		d.encryptedCards = d.encryptedCards[:len(d.encryptedCards)-1]
+		d.seenDecryptionKeys[topCard.String()] = decryptionKeys
+	}
+	return
 }
 
 func (d *Deck) PopForFirstDiscard() (game.Card, error) {
-	panic("TODO")
+	// Grab all decryption keys for -1 index (which is all of em)
+	topCard, decryptionKeys, err := d.popTopCardForDeal(-1)
+	if err != nil {
+		return 0, err
+	}
+	return d.decryptCard(topCard, decryptionKeys)
 }
 
 func (d *Deck) CompleteHand(players []game.Player) (game.CardDeckHandCompleteReveal, error) {
