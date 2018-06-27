@@ -109,9 +109,11 @@ message HostMessage {
       repeated uint32 player_cards_remaining = 3;
       uint32 deck_cards_remaining = 4;
       repeated uint32 discard_stack = 5;
-      uint32 last_discard_wild_color = 6;
+      // -1 if unknown
+      int32 last_discard_wild_color = 6;
       bool forward = 7;
-      uint32 one_left_target = 8;
+      // -1 if none
+      int32 one_left_target = 8;
     }
 
     message HandComplete {

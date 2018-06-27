@@ -7,19 +7,19 @@ import (
 	"sort"
 	"sync"
 
-	"crypto/rand"
-
 	"github.com/cretz/one-left/oneleft/game"
 	"github.com/cretz/one-left/oneleft/pb"
 	"github.com/golang/protobuf/proto"
+	"github.com/google/uuid"
 )
 
 type deck struct {
+	*deckInfo
 	game        *Game
+	handID      uuid.UUID
 	sharedPrime *big.Int
 	// Keyed by orig encrypted card big.int serialized to string
-	seenDecryptionKeys  map[string][]*big.Int
-	handStartPlayerSigs [][]byte
+	seenDecryptionKeys map[string][]*big.Int
 	// Must be sorted and the start since the start of the hand
 	origStartCards []game.Card
 	// Just since last shuffle
@@ -28,20 +28,22 @@ type deck struct {
 	encryptedCardsHeldByPlayers map[string]int
 }
 
+type deckInfo struct {
+	handID        uuid.UUID
+	handStartSigs [][]byte
+	sharedPrime   *big.Int
+}
+
 // TODO: conf
 const sharedPrimeBits = 256
 
-func newDeck(g *Game, handStartSigs [][]byte) (*deck, error) {
+func newDeck(g *Game, deckInfo *deckInfo) (*deck, error) {
 	deck := &deck{
 		game:                        g,
+		deckInfo:                    deckInfo,
 		seenDecryptionKeys:          map[string][]*big.Int{},
-		handStartPlayerSigs:         handStartSigs,
 		origStartCards:              make([]game.Card, 108),
 		encryptedCardsHeldByPlayers: map[string]int{},
-	}
-	var err error
-	if deck.sharedPrime, err = rand.Prime(rand.Reader, sharedPrimeBits); err != nil {
-		return nil, fmt.Errorf("Failed generating shared prime: %v", err)
 	}
 	// Set up the orig deck
 	// TODO: It'd be nice if we could make a big list of large, random values to represent cards
@@ -74,7 +76,7 @@ func (d *deck) Shuffle(startCards []game.Card) error {
 	}
 	// Build stage 0 request
 	req := &pb.ShuffleRequest{
-		HandStartPlayerSigs: d.handStartPlayerSigs,
+		HandStartPlayerSigs: d.handStartSigs,
 		Stage:               0,
 		UnencryptedStartCards: make([]uint32, len(d.unencryptedStartCards)),
 		WorkingCardSet:        make([][]byte, len(d.unencryptedStartCards)),
@@ -294,12 +296,14 @@ func (d *deck) CompleteHand() (game.CardDeckHandCompleteReveal, error) {
 		}
 	}
 	// Now check the deck
-	for _, deckEncCard := range d.encryptedCards {
+	completeReveal.deckCards = make([]game.Card, len(d.encryptedCards))
+	for i, deckEncCard := range d.encryptedCards {
 		if card, err := decryptCard(deckEncCard); err != nil {
 			return nil, fmt.Errorf("Unable to decrypt deck card: %v", err)
 		} else if !card.Valid() {
 			return nil, fmt.Errorf("Deck card invalid")
 		} else {
+			completeReveal.deckCards[i] = card
 			allCardsTogether = append(allCardsTogether, card)
 		}
 	}
@@ -335,6 +339,10 @@ func (d *deck) CompleteHand() (game.CardDeckHandCompleteReveal, error) {
 		}
 		completeReveal.endSigs = append(completeReveal.endSigs, respSig.Sig)
 	}
+	// Set the last hand end sigs
+	d.game.dataLock.Lock()
+	d.game.lastHandEndSigs = completeReveal.endSigs
+	d.game.dataLock.Unlock()
 	return completeReveal, nil
 }
 
@@ -368,6 +376,7 @@ func (d *deck) doAllHandEnds(req *pb.HandEndRequest) ([]*pb.HandEndResponse, err
 
 type handCompleteReveal struct {
 	playerCards [][]game.Card
+	deckCards   []game.Card
 	endInfo     *pb.HandEndRequest
 	endSigs     [][]byte
 }

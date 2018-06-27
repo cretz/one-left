@@ -33,7 +33,7 @@ func (h *requestHandler) OnChatMessage(c *client.Client, msg *pb.ChatMessage) {
 	info := h.clients[c.Num()]
 	h.lock.RUnlock()
 	// Eager player ID check
-	if info == nil || len(info.ID) == 0 || !bytes.Equal(info.ID, msg.PlayerId) {
+	if info == nil || info.Identity == nil || !bytes.Equal(info.Identity.Id, msg.PlayerId) {
 		c.Fail(fmt.Errorf("Only players can chat"))
 		return
 	}

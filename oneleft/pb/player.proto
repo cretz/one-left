@@ -4,7 +4,8 @@ package pb;
 message PlayerIdentity {
   // ID is pub key
   bytes id = 1;
-  string name = 2;
+  bytes random_nonce = 2;
+  string name = 3;
   bytes sig = 4;
 }
 
@@ -25,11 +26,10 @@ service Player {
 }
 
 message JoinRequest {
-  bytes to_sign = 1;
+  bytes random_nonce = 1;
 }
 message JoinResponse {
-  bytes sig = 1;
-  PlayerIdentity player = 2;
+  PlayerIdentity player = 1;
 }
 
 message GameStartRequest {
@@ -64,7 +64,7 @@ message HandStartRequest {
   repeated bytes last_hand_end_player_sigs = 6;
 }
 message HandStartResponse {
-  repeated bytes sig = 1;
+  bytes sig = 1;
 }
 
 message HandEndRequest {
