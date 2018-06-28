@@ -7,14 +7,7 @@ import (
 	"github.com/cretz/one-left/oneleft/pb"
 )
 
-func (c *client) doRPC(ctx context.Context, req *pb.HostMessage_PlayerRequest) {
-	if err := c.makeRPCCall(ctx, req); err != nil {
-		// Completely fail the entire client on even the slightest error
-		c.FailNonBlocking(err)
-	}
-}
-
-func (c *client) makeRPCCall(ctx context.Context, req *pb.HostMessage_PlayerRequest) error {
+func (c *client) doRPC(ctx context.Context, req *pb.HostMessage_PlayerRequest) error {
 	switch msg := req.Message.(type) {
 	case *pb.HostMessage_PlayerRequest_JoinRequest:
 		resp, err := c.handler.Join(ctx, msg.JoinRequest)

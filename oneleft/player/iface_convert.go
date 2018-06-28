@@ -104,3 +104,18 @@ func convertGameEvent(v *pb.HostMessage_GameEvent) (*iface.GameEvent, error) {
 	}
 	return event, nil
 }
+
+func convertError(v *pb.HostMessage_Error) (*iface.Error, error) {
+	ret := &iface.Error{
+		Message:        v.Message,
+		PlayerIndex:    int(v.PlayerIndex),
+		TerminatesGame: v.TerminatesGame,
+	}
+	if len(v.GameId) > 0 {
+		var err error
+		if ret.GameID, err = uuid.FromBytes(v.GameId); err != nil {
+			return nil, err
+		}
+	}
+	return ret, nil
+}

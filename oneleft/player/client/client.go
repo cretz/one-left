@@ -1,6 +1,7 @@
 package client
 
 import (
+	"context"
 	"fmt"
 	"sync"
 
@@ -17,12 +18,12 @@ type Client interface {
 type RequestHandler interface {
 	pb.PlayerServer
 
-	OnRun(Client)
-	OnWelcome(Client, *pb.HostMessage_Welcome)
-	OnPlayersUpdate(Client, *pb.HostMessage_Players)
-	OnChatMessage(Client, *pb.ChatMessage)
-	OnGameEvent(Client, *pb.HostMessage_GameEvent)
-	OnError(Client, *pb.HostMessage_Error)
+	OnRun(context.Context) error
+	OnWelcome(context.Context, *pb.HostMessage_Welcome) error
+	OnPlayersUpdate(context.Context, *pb.HostMessage_Players) error
+	OnChatMessage(context.Context, *pb.ChatMessage) error
+	OnGameEvent(context.Context, *pb.HostMessage_GameEvent) error
+	OnError(context.Context, *pb.HostMessage_Error) error
 }
 
 type client struct {
@@ -77,39 +78,35 @@ func (c *client) Run() error {
 			}
 		}
 	}()
+	// Notify start
+	err := c.handler.OnRun(c.stream.Context())
 	// Stream requests and responses
-	var err error
-MainLoop:
-	for {
+	for err == nil {
 		select {
 		case sendMsg := <-c.sendCh:
-			if err = c.stream.Send(sendMsg); err != nil {
-				break MainLoop
-			}
+			err = c.stream.Send(sendMsg)
 		case recvMsg := <-recvMsgCh:
 			switch recvMsg := recvMsg.Message.(type) {
 			case *pb.HostMessage_Welcome_:
-				go c.handler.OnWelcome(c, recvMsg.Welcome)
+				err = c.handler.OnWelcome(c.stream.Context(), recvMsg.Welcome)
 			case *pb.HostMessage_PlayersUpdate:
-				go c.handler.OnPlayersUpdate(c, recvMsg.PlayersUpdate)
+				err = c.handler.OnPlayersUpdate(c.stream.Context(), recvMsg.PlayersUpdate)
 			case *pb.HostMessage_ChatMessageAdded:
-				go c.handler.OnChatMessage(c, recvMsg.ChatMessageAdded)
+				err = c.handler.OnChatMessage(c.stream.Context(), recvMsg.ChatMessageAdded)
 			case *pb.HostMessage_GameEvent_:
-				go c.handler.OnGameEvent(c, recvMsg.GameEvent)
+				err = c.handler.OnGameEvent(c.stream.Context(), recvMsg.GameEvent)
 			case *pb.HostMessage_Error_:
-				go c.handler.OnError(c, recvMsg.Error)
+				err = c.handler.OnError(c.stream.Context(), recvMsg.Error)
 			case *pb.HostMessage_PlayerRequest_:
-				go c.doRPC(c.stream.Context(), recvMsg.PlayerRequest)
+				err = c.doRPC(c.stream.Context(), recvMsg.PlayerRequest)
 			default:
 				err = fmt.Errorf("Unrecognized message type: %T", recvMsg)
-				break MainLoop
 			}
 		case err = <-recvErrCh:
-			break MainLoop
 		case err = <-c.terminatingErrCh:
-			break MainLoop
 		}
 	}
+	// TODO: we should log this
 	return err
 }
 
