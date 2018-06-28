@@ -8,7 +8,17 @@ import (
 	"github.com/cretz/one-left/oneleft/pb"
 )
 
-type Client struct {
+type Client interface {
+	pb.PlayerServer
+
+	Num() uint64
+	Running() bool
+	Run() error
+	SendNonBlocking(*pb.HostMessage) error
+	FailNonBlocking(error) error
+}
+
+type client struct {
 	num            uint64
 	handler        ClientRequestHandler
 	stream         pb.Host_StreamServer
@@ -24,10 +34,10 @@ type Client struct {
 }
 
 type ClientRequestHandler interface {
-	OnRun(*Client)
-	OnChatMessage(*Client, *pb.ChatMessage)
-	OnStartJoin(*Client)
-	OnStop(*Client)
+	OnRun(Client)
+	OnChatMessage(Client, *pb.ChatMessage)
+	OnStartJoin(Client)
+	OnStop(Client)
 }
 
 var clientNumCounterLock sync.Mutex
@@ -44,8 +54,8 @@ func New(
 	handler ClientRequestHandler,
 	stream pb.Host_StreamServer,
 	maxRPCWaitTime time.Duration,
-) *Client {
-	return &Client{
+) Client {
+	return &client{
 		num:            nextClientNum(),
 		handler:        handler,
 		stream:         stream,
@@ -53,14 +63,14 @@ func New(
 	}
 }
 
-func (c *Client) Num() uint64 { return c.num }
-func (c *Client) Running() bool {
+func (c *client) Num() uint64 { return c.num }
+func (c *client) Running() bool {
 	c.chLock.RLock()
 	defer c.chLock.RUnlock()
 	return c.sendCh != nil
 }
 
-func (c *Client) Run() error {
+func (c *client) Run() error {
 	// Create channels
 	c.chLock.Lock()
 	if c.sendCh == nil {
@@ -140,7 +150,7 @@ MainLoop:
 	return err
 }
 
-func (c *Client) SendNonBlocking(msg *pb.HostMessage) error {
+func (c *client) SendNonBlocking(msg *pb.HostMessage) error {
 	c.chLock.RLock()
 	defer c.chLock.RUnlock()
 	if c.sendCh == nil {
@@ -150,7 +160,7 @@ func (c *Client) SendNonBlocking(msg *pb.HostMessage) error {
 	return nil
 }
 
-func (c *Client) FailNonBlocking(err error) error {
+func (c *client) FailNonBlocking(err error) error {
 	c.chLock.RLock()
 	defer c.chLock.RUnlock()
 	if c.terminatingErrCh == nil {

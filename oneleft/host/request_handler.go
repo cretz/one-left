@@ -20,7 +20,7 @@ type requestHandler struct {
 	*Host
 }
 
-func (h *requestHandler) OnRun(c *client.Client) {
+func (h *requestHandler) OnRun(c client.Client) {
 	h.lock.Lock()
 	defer h.lock.Unlock()
 	err := c.SendNonBlocking(&pb.HostMessage{Message: &pb.HostMessage_Welcome_{&pb.HostMessage_Welcome{
@@ -38,7 +38,7 @@ func utcTimestampMs() uint64 {
 	return uint64(time.Now().UnixNano()) / uint64(time.Millisecond)
 }
 
-func (h *requestHandler) OnChatMessage(c *client.Client, msg *pb.ChatMessage) {
+func (h *requestHandler) OnChatMessage(c client.Client, msg *pb.ChatMessage) {
 	// Get player info
 	h.lock.RLock()
 	info := h.clients[c.Num()]
@@ -93,7 +93,7 @@ func (h *requestHandler) OnChatMessage(c *client.Client, msg *pb.ChatMessage) {
 	h.chatMessages = newChatMessages
 }
 
-func (h *requestHandler) OnStartJoin(c *client.Client) {
+func (h *requestHandler) OnStartJoin(c client.Client) {
 	sendErr := func(str string) {
 		c.SendNonBlocking(&pb.HostMessage{Message: &pb.HostMessage_Error_{Error: &pb.HostMessage_Error{Message: str}}})
 	}
@@ -182,7 +182,7 @@ func (h *requestHandler) OnStartJoin(c *client.Client) {
 	h.sendPlayerUpdatesUnsafe()
 }
 
-func (h *requestHandler) OnStop(c *client.Client) {
+func (h *requestHandler) OnStop(c client.Client) {
 	// We don't care if this is a player and we're in the game, we expect the game will stop somewhere else and nothing
 	// as part of the game should use the player sets.
 	// Lock for all of this

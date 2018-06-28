@@ -7,7 +7,7 @@ import (
 	"github.com/cretz/one-left/oneleft/pb"
 )
 
-func (c *Client) doRPC(ctx context.Context, req interface{}) (interface{}, error) {
+func (c *client) doRPC(ctx context.Context, req interface{}) (interface{}, error) {
 	if !c.Running() {
 		return nil, fmt.Errorf("Client not running")
 	}
@@ -39,7 +39,7 @@ func (c *Client) doRPC(ctx context.Context, req interface{}) (interface{}, error
 	}
 }
 
-func (c *Client) Join(ctx context.Context, req *pb.JoinRequest) (*pb.JoinResponse, error) {
+func (c *client) Join(ctx context.Context, req *pb.JoinRequest) (*pb.JoinResponse, error) {
 	resp, err := c.doRPC(ctx, req)
 	if err != nil {
 		return nil, err
@@ -47,7 +47,7 @@ func (c *Client) Join(ctx context.Context, req *pb.JoinRequest) (*pb.JoinRespons
 	return resp.(*pb.JoinResponse), nil
 }
 
-func (c *Client) GameStart(ctx context.Context, req *pb.GameStartRequest) (*pb.GameStartResponse, error) {
+func (c *client) GameStart(ctx context.Context, req *pb.GameStartRequest) (*pb.GameStartResponse, error) {
 	resp, err := c.doRPC(ctx, req)
 	if err != nil {
 		return nil, err
@@ -55,7 +55,7 @@ func (c *Client) GameStart(ctx context.Context, req *pb.GameStartRequest) (*pb.G
 	return resp.(*pb.GameStartResponse), nil
 }
 
-func (c *Client) GameEnd(ctx context.Context, req *pb.GameEndRequest) (*pb.GameEndResponse, error) {
+func (c *client) GameEnd(ctx context.Context, req *pb.GameEndRequest) (*pb.GameEndResponse, error) {
 	resp, err := c.doRPC(ctx, req)
 	if err != nil {
 		return nil, err
@@ -63,7 +63,7 @@ func (c *Client) GameEnd(ctx context.Context, req *pb.GameEndRequest) (*pb.GameE
 	return resp.(*pb.GameEndResponse), nil
 }
 
-func (c *Client) HandStart(ctx context.Context, req *pb.HandStartRequest) (*pb.HandStartResponse, error) {
+func (c *client) HandStart(ctx context.Context, req *pb.HandStartRequest) (*pb.HandStartResponse, error) {
 	resp, err := c.doRPC(ctx, req)
 	if err != nil {
 		return nil, err
@@ -71,7 +71,7 @@ func (c *Client) HandStart(ctx context.Context, req *pb.HandStartRequest) (*pb.H
 	return resp.(*pb.HandStartResponse), nil
 }
 
-func (c *Client) HandEnd(ctx context.Context, req *pb.HandEndRequest) (*pb.HandEndResponse, error) {
+func (c *client) HandEnd(ctx context.Context, req *pb.HandEndRequest) (*pb.HandEndResponse, error) {
 	resp, err := c.doRPC(ctx, req)
 	if err != nil {
 		return nil, err
@@ -79,7 +79,7 @@ func (c *Client) HandEnd(ctx context.Context, req *pb.HandEndRequest) (*pb.HandE
 	return resp.(*pb.HandEndResponse), nil
 }
 
-func (c *Client) Shuffle(ctx context.Context, req *pb.ShuffleRequest) (*pb.ShuffleResponse, error) {
+func (c *client) Shuffle(ctx context.Context, req *pb.ShuffleRequest) (*pb.ShuffleResponse, error) {
 	resp, err := c.doRPC(ctx, req)
 	if err != nil {
 		return nil, err
@@ -87,7 +87,7 @@ func (c *Client) Shuffle(ctx context.Context, req *pb.ShuffleRequest) (*pb.Shuff
 	return resp.(*pb.ShuffleResponse), nil
 }
 
-func (c *Client) ChooseColorSinceFirstCardIsWild(
+func (c *client) ChooseColorSinceFirstCardIsWild(
 	ctx context.Context, req *pb.ChooseColorSinceFirstCardIsWildRequest,
 ) (*pb.ChooseColorSinceFirstCardIsWildResponse, error) {
 	resp, err := c.doRPC(ctx, req)
@@ -97,7 +97,7 @@ func (c *Client) ChooseColorSinceFirstCardIsWild(
 	return resp.(*pb.ChooseColorSinceFirstCardIsWildResponse), nil
 }
 
-func (c *Client) GetDeckTopDecryptionKey(
+func (c *client) GetDeckTopDecryptionKey(
 	ctx context.Context, req *pb.GetDeckTopDecryptionKeyRequest,
 ) (*pb.GetDeckTopDecryptionKeyResponse, error) {
 	resp, err := c.doRPC(ctx, req)
@@ -107,7 +107,7 @@ func (c *Client) GetDeckTopDecryptionKey(
 	return resp.(*pb.GetDeckTopDecryptionKeyResponse), nil
 }
 
-func (c *Client) GiveDeckTopCard(
+func (c *client) GiveDeckTopCard(
 	ctx context.Context, req *pb.GiveDeckTopCardRequest,
 ) (*pb.GiveDeckTopCardResponse, error) {
 	resp, err := c.doRPC(ctx, req)
@@ -117,7 +117,7 @@ func (c *Client) GiveDeckTopCard(
 	return resp.(*pb.GiveDeckTopCardResponse), nil
 }
 
-func (c *Client) Play(ctx context.Context, req *pb.PlayRequest) (*pb.PlayResponse, error) {
+func (c *client) Play(ctx context.Context, req *pb.PlayRequest) (*pb.PlayResponse, error) {
 	resp, err := c.doRPC(ctx, req)
 	if err != nil {
 		return nil, err
@@ -125,7 +125,7 @@ func (c *Client) Play(ctx context.Context, req *pb.PlayRequest) (*pb.PlayRespons
 	return resp.(*pb.PlayResponse), nil
 }
 
-func (c *Client) ShouldChallengeWildDrawFour(
+func (c *client) ShouldChallengeWildDrawFour(
 	ctx context.Context, req *pb.ShouldChallengeWildDrawFourRequest,
 ) (*pb.ShouldChallengeWildDrawFourResponse, error) {
 	resp, err := c.doRPC(ctx, req)
@@ -135,7 +135,7 @@ func (c *Client) ShouldChallengeWildDrawFour(
 	return resp.(*pb.ShouldChallengeWildDrawFourResponse), nil
 }
 
-func (c *Client) RevealCardsForChallenge(
+func (c *client) RevealCardsForChallenge(
 	ctx context.Context, req *pb.RevealCardsForChallengeRequest,
 ) (*pb.RevealCardsForChallengeResponse, error) {
 	resp, err := c.doRPC(ctx, req)
@@ -145,7 +145,7 @@ func (c *Client) RevealCardsForChallenge(
 	return resp.(*pb.RevealCardsForChallengeResponse), nil
 }
 
-func (c *Client) RevealedCardsForChallenge(
+func (c *client) RevealedCardsForChallenge(
 	ctx context.Context, req *pb.RevealedCardsForChallengeRequest,
 ) (*pb.RevealedCardsForChallengeResponse, error) {
 	resp, err := c.doRPC(ctx, req)

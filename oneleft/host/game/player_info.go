@@ -10,7 +10,7 @@ import (
 )
 
 type PlayerInfo struct {
-	Client   *client.Client
+	Client   client.Client
 	Identity *pb.PlayerIdentity
 }
 
