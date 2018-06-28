@@ -7,6 +7,7 @@ import (
 	"sort"
 	"sync"
 
+	"github.com/cretz/one-left/oneleft/crypto/sra"
 	"github.com/cretz/one-left/oneleft/game"
 	"github.com/cretz/one-left/oneleft/pb"
 	"github.com/golang/protobuf/proto"
@@ -56,7 +57,7 @@ func newDeck(g *Game, deckInfo *deckInfo) (*deck, error) {
 
 func (d *deck) decryptCard(card *big.Int, decryptionKeys []*big.Int) (game.Card, error) {
 	for _, decryptionKey := range decryptionKeys {
-		card = new(big.Int).Exp(card, decryptionKey, d.sharedPrime)
+		card = sra.DecryptInt(d.sharedPrime, decryptionKey, card)
 	}
 	if card.BitLen() <= 32 {
 		if ret := game.Card(card.Int64()); ret.Valid() {

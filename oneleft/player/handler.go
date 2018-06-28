@@ -2,8 +2,11 @@ package player
 
 import (
 	"context"
+	"math/big"
+	"sync"
 	"time"
 
+	"github.com/cretz/one-left/oneleft/crypto/sra"
 	"github.com/cretz/one-left/oneleft/pb"
 	"github.com/cretz/one-left/oneleft/player/iface"
 )
@@ -11,10 +14,20 @@ import (
 type handler struct {
 	player *player
 	ui     iface.Interface
+
+	dataLock           sync.RWMutex
+	sharedPrime        *big.Int
+	shuffleStage0Pair  *sra.KeyPair
+	shuffleStage1Pairs []*sra.KeyPair
+	// Key is enc card string
+	cardPairs         map[string]*sra.KeyPair
+	lastEvent         *iface.GameEvent
+	lastHandStartSigs [][]byte
 }
 
 // TODO: config
 const maxIfaceHandleTime = 1 * time.Minute
+const sraKeyPairBits = 32
 
 func (p *handler) OnRun(ctx context.Context) error {
 	// Do nothing
@@ -61,6 +74,9 @@ func (p *handler) OnGameEvent(ctx context.Context, v *pb.HostMessage_GameEvent) 
 	if event, err := convertGameEvent(v); err != nil {
 		return err
 	} else {
+		p.dataLock.Lock()
+		p.lastEvent = event
+		p.dataLock.Unlock()
 		return p.ui.GameEvent(ctx, event)
 	}
 }

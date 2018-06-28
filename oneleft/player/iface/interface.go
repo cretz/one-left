@@ -16,7 +16,7 @@ type Interface interface {
 	GameEvent(context.Context, *GameEvent) error
 	Error(context.Context, *Error) error
 
-	GameStart(ctx context.Context, id uuid.UUID, players []Player) error
+	GameStart(ctx context.Context, id uuid.UUID, players []*Player) error
 	GameEnd(ctx context.Context, scores []int) error
 	HandStart(ctx context.Context, dealerIndex int) error
 	HandEnd(
