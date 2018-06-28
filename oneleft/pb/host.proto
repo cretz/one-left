@@ -42,9 +42,10 @@ message HostMessage {
   }
 
   message Welcome {
-    repeated PlayerIdentity players = 1;
-    repeated ChatMessage chat_messages = 2;
-    GameEvent last_game_event = 3;
+    uint32 version = 1;
+    repeated PlayerIdentity players = 2;
+    repeated ChatMessage chat_messages = 3;
+    GameEvent last_game_event = 4;
   }
 
   message Players {

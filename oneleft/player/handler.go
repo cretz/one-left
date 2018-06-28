@@ -9,6 +9,7 @@ import (
 	"github.com/cretz/one-left/oneleft/crypto/sra"
 	"github.com/cretz/one-left/oneleft/pb"
 	"github.com/cretz/one-left/oneleft/player/iface"
+	"github.com/google/uuid"
 )
 
 type handler struct {
@@ -16,18 +17,25 @@ type handler struct {
 	ui     iface.Interface
 
 	dataLock           sync.RWMutex
+	myIndex            int
 	sharedPrime        *big.Int
 	shuffleStage0Pair  *sra.KeyPair
 	shuffleStage1Pairs []*sra.KeyPair
 	// Key is enc card string
-	cardPairs         map[string]*sra.KeyPair
-	lastEvent         *iface.GameEvent
-	lastHandStartSigs [][]byte
+	cardPairs                    map[string]*sra.KeyPair
+	encryptedDeckCards           []*big.Int
+	encryptedCardsGivenToPlayers map[string]int
+	lastEvent                    *iface.GameEvent
+	lastGameStart                *pb.GameStartRequest
+	lastHandStart                *pb.HandStartRequest
+	lastHandEnd                  *pb.HandEndRequest
+	lastHandID                   uuid.UUID
 }
 
 // TODO: config
 const maxIfaceHandleTime = 1 * time.Minute
 const sraKeyPairBits = 32
+const minPrimeBitLen = 128
 
 func (p *handler) OnRun(ctx context.Context) error {
 	// Do nothing

@@ -21,9 +21,13 @@ type HandComplete struct {
 }
 
 func (h *hand) play() (*HandComplete, *GameError) {
+	// Shuffle and go around table dealing cards
 	if err := h.shuffleAndDeal(); err != nil {
 		return nil, err
 	}
+	// Dealer was dealt last, move to next
+	h.moveNextPlayer()
+	// Discard top
 	if err := h.createDiscardWithFirstCard(); err != nil {
 		return nil, err
 	}
