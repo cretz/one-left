@@ -123,7 +123,7 @@ func (g *Game) doGameStart() error {
 			resp, err := p.Client.GameStart(ctx, req)
 			if err == nil {
 				// Go ahead and verify the sig
-				if p.VerifySig(reqBytes, resp.Sig) {
+				if p.Identity.VerifySig(reqBytes, resp.Sig) {
 					gameStartSigs[i] = resp.Sig
 					return
 				}
@@ -174,7 +174,7 @@ func (g *Game) doGameEnd() error {
 			resp, err := p.Client.GameEnd(ctx, req)
 			if err == nil {
 				// Go ahead and verify the sig
-				if p.VerifySig(reqBytes, resp.Sig) {
+				if p.Identity.VerifySig(reqBytes, resp.Sig) {
 					return
 				}
 				err = fmt.Errorf("Signature invalid")
@@ -237,7 +237,7 @@ func (g *Game) doHandStart() (*deckInfo, error) {
 			resp, err := p.Client.HandStart(ctx, req)
 			if err == nil {
 				// Go ahead and verify the sig
-				if p.VerifySig(reqBytes, resp.Sig) {
+				if p.Identity.VerifySig(reqBytes, resp.Sig) {
 					ret.handStartSigs[i] = resp.Sig
 					return
 				}

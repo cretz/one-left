@@ -20,7 +20,7 @@ type Client interface {
 
 type client struct {
 	num            uint64
-	handler        ClientRequestHandler
+	handler        RequestHandler
 	stream         pb.Host_StreamServer
 	maxRPCWaitTime time.Duration
 
@@ -33,7 +33,7 @@ type client struct {
 	receivedRespErrCh chan<- error
 }
 
-type ClientRequestHandler interface {
+type RequestHandler interface {
 	OnRun(Client)
 	OnChatMessage(Client, *pb.ChatMessage)
 	OnStartJoin(Client)
@@ -51,7 +51,7 @@ func nextClientNum() uint64 {
 }
 
 func New(
-	handler ClientRequestHandler,
+	handler RequestHandler,
 	stream pb.Host_StreamServer,
 	maxRPCWaitTime time.Duration,
 ) Client {
@@ -73,7 +73,7 @@ func (c *client) Running() bool {
 func (c *client) Run() error {
 	// Create channels
 	c.chLock.Lock()
-	if c.sendCh == nil {
+	if c.sendCh != nil {
 		c.chLock.Unlock()
 		return fmt.Errorf("Already running or have run")
 	}
@@ -154,7 +154,7 @@ func (c *client) SendNonBlocking(msg *pb.HostMessage) error {
 	c.chLock.RLock()
 	defer c.chLock.RUnlock()
 	if c.sendCh == nil {
-		return fmt.Errorf("Send channel gone")
+		return fmt.Errorf("Not running")
 	}
 	go func(ch chan *pb.HostMessage) { ch <- msg }(c.sendCh)
 	return nil
@@ -164,7 +164,7 @@ func (c *client) FailNonBlocking(err error) error {
 	c.chLock.RLock()
 	defer c.chLock.RUnlock()
 	if c.terminatingErrCh == nil {
-		return fmt.Errorf("Termination channel gone")
+		return fmt.Errorf("Not running")
 	}
 	go func(ch chan error) { ch <- err }(c.terminatingErrCh)
 	return nil

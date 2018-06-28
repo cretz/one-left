@@ -334,7 +334,7 @@ func (d *deck) CompleteHand() (game.CardDeckHandCompleteReveal, error) {
 		respSig, ok := resp.Message.(*pb.HandEndResponse_Sig)
 		if !ok || respSig == nil {
 			return nil, game.PlayerErrorf(i, "Invalid player hand end second response")
-		} else if !d.game.players[i].VerifySig(reqBytes, respSig.Sig) {
+		} else if !d.game.players[i].Identity.VerifySig(reqBytes, respSig.Sig) {
 			return nil, game.PlayerErrorf(i, "Hand end signature verification failed")
 		}
 		completeReveal.endSigs = append(completeReveal.endSigs, respSig.Sig)

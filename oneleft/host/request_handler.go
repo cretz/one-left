@@ -13,7 +13,6 @@ import (
 	"github.com/cretz/one-left/oneleft/host/client"
 	"github.com/cretz/one-left/oneleft/host/game"
 	"github.com/cretz/one-left/oneleft/pb"
-	"github.com/golang/protobuf/proto"
 )
 
 type requestHandler struct {
@@ -61,13 +60,7 @@ func (h *requestHandler) OnChatMessage(c client.Client, msg *pb.ChatMessage) {
 	} else if msg.HostUtcMs != 0 {
 		c.FailNonBlocking(fmt.Errorf("Host UTC MS should not be set on chat"))
 		return
-	}
-	// Check the sig
-	cloned := proto.Clone(msg).(*pb.ChatMessage)
-	cloned.Sig = nil
-	if clonedBytes, err := proto.Marshal(cloned); err != nil {
-		panic(err)
-	} else if !info.VerifySig(clonedBytes, msg.Sig) {
+	} else if !msg.Verify() {
 		c.FailNonBlocking(fmt.Errorf("Signature failed"))
 		return
 	}
@@ -129,7 +122,7 @@ func (h *requestHandler) OnStartJoin(c client.Client) {
 	} else if len(info.Identity.Id) != ed25519.PublicKeySize {
 		sendErr("Invalid ID")
 		return
-	} else if !info.VerifyIdentity() {
+	} else if !info.Identity.VerifyIdentity() {
 		sendErr("Invalid sig")
 		return
 	} else if info.Identity.Name == "" || len(info.Identity.Name) > maxNameLen {
