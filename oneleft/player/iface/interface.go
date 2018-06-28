@@ -25,7 +25,7 @@ type Interface interface {
 	ChooseColorSinceFirstCardIsWild(context.Context) (game.CardColor, error)
 	ReceiveCard(ctx context.Context, card game.Card) error
 	Play(ctx context.Context) (card game.Card, wildColor game.CardColor, err error)
-	ShouldChallengeWildDrawFour() error
+	ShouldChallengeWildDrawFour() (bool, error)
 }
 
 type Player struct {

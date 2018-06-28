@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/cretz/one-left/oneleft/crypto/sra"
+	"github.com/cretz/one-left/oneleft/game"
 	"github.com/cretz/one-left/oneleft/pb"
 	"github.com/cretz/one-left/oneleft/player/iface"
 	"github.com/google/uuid"
@@ -25,11 +26,18 @@ type handler struct {
 	cardPairs                    map[string]*sra.KeyPair
 	encryptedDeckCards           []*big.Int
 	encryptedCardsGivenToPlayers map[string]int
+	myCards                      []*myCardInfo
 	lastEvent                    *iface.GameEvent
 	lastGameStart                *pb.GameStartRequest
 	lastHandStart                *pb.HandStartRequest
 	lastHandEnd                  *pb.HandEndRequest
 	lastHandID                   uuid.UUID
+}
+
+type myCardInfo struct {
+	card           game.Card
+	encryptedCard  *big.Int
+	decryptionKeys []*big.Int
 }
 
 // TODO: config
@@ -73,19 +81,6 @@ func (p *handler) OnChatMessage(ctx context.Context, v *pb.ChatMessage) error {
 		return err
 	} else {
 		return p.ui.ChatMessage(ctx, msg)
-	}
-}
-
-func (p *handler) OnGameEvent(ctx context.Context, v *pb.HostMessage_GameEvent) error {
-	ctx, cancelFn := context.WithTimeout(ctx, maxIfaceHandleTime)
-	defer cancelFn()
-	if event, err := convertGameEvent(v); err != nil {
-		return err
-	} else {
-		p.dataLock.Lock()
-		p.lastEvent = event
-		p.dataLock.Unlock()
-		return p.ui.GameEvent(ctx, event)
 	}
 }
 

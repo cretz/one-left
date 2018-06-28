@@ -50,6 +50,7 @@ func (p *handler) GameStart(ctx context.Context, req *pb.GameStartRequest) (*pb.
 	p.cardPairs = map[string]*sra.KeyPair{}
 	p.encryptedDeckCards = nil
 	p.encryptedCardsGivenToPlayers = map[string]int{}
+	p.myCards = nil
 	p.lastEvent = nil
 	p.lastGameStart = req
 	p.lastHandStart = nil
@@ -359,43 +360,101 @@ func (p *handler) GiveDeckTopCard(
 	}
 	// Just take it, we'll have the event handler check normal game state
 	// Decrypt the card with all keys
+	myCard := &myCardInfo{encryptedCard: encCard, decryptionKeys: make([]*big.Int, len(req.DecryptionKeys))}
 	for i, otherDecKey := range req.DecryptionKeys {
 		// My index should be empty and I'll use my pair
 		if i == myIndex {
 			if len(otherDecKey) != 0 {
 				return nil, fmt.Errorf("A key was given for my index")
 			}
+			myCard.decryptionKeys[i] = pair.Dec
 			encCard = pair.DecryptInt(encCard)
 		} else if len(otherDecKey) == 0 {
 			return nil, fmt.Errorf("Missing decryption key")
 		} else {
-			encCard = sra.DecryptInt(sharedPrime, new(big.Int).SetBytes(otherDecKey), encCard)
+			decKey := new(big.Int).SetBytes(otherDecKey)
+			myCard.decryptionKeys[i] = decKey
+			encCard = sra.DecryptInt(sharedPrime, decKey, encCard)
 		}
 	}
 	if encCard.BitLen() > 32 {
 		return nil, fmt.Errorf("Invalid card decryption")
 	}
-	card := game.Card(int(encCard.Int64()))
-	if !card.Valid() {
+	myCard.card = game.Card(int(encCard.Int64()))
+	if !myCard.card.Valid() {
 		return nil, fmt.Errorf("Invalid card")
 	}
+	// Add the card
+	p.dataLock.Lock()
+	p.myCards = append(p.myCards, myCard)
+	p.dataLock.Unlock()
 	// Send downstream
 	ctx, cancelFn := context.WithTimeout(ctx, maxIfaceHandleTime)
 	defer cancelFn()
-	if err := p.ui.ReceiveCard(ctx, card); err != nil {
+	if err := p.ui.ReceiveCard(ctx, myCard.card); err != nil {
 		return nil, err
 	}
 	return &pb.GiveDeckTopCardResponse{}, nil
 }
 
 func (p *handler) Play(ctx context.Context, req *pb.PlayRequest) (*pb.PlayResponse, error) {
-	panic("TODO")
+	ctx, cancelFn := context.WithTimeout(ctx, maxIfaceHandleTime)
+	defer cancelFn()
+	// Ask first
+	card, wildColor, err := p.ui.Play(ctx)
+	if err != nil {
+		return nil, err
+	} else if card.Wild() {
+		wildColor = 0
+	}
+	// Lock the rest of the way
+	p.dataLock.Lock()
+	defer p.dataLock.Unlock()
+	// Find the card info based on the card
+	var myCard *myCardInfo
+	myCardIndex := -1
+	for i, c := range p.myCards {
+		if c.card == card {
+			myCard = c
+			myCardIndex = i
+			break
+		}
+	}
+	if myCard == nil {
+		return nil, fmt.Errorf("Invalid card")
+	}
+	p.myCards = append(p.myCards[:myCardIndex], p.myCards[myCardIndex+1:]...)
+	resp := &pb.PlayResponse{
+		EncryptedCard:      myCard.encryptedCard.Bytes(),
+		UnencryptedCard:    uint32(myCard.card),
+		CardDecryptionKeys: make([][]byte, len(myCard.decryptionKeys)),
+		WildColor:          uint32(wildColor),
+	}
+	for i, decKey := range myCard.decryptionKeys {
+		resp.CardDecryptionKeys[i] = decKey.Bytes()
+	}
+	return resp, nil
 }
 
 func (p *handler) ShouldChallengeWildDrawFour(
 	ctx context.Context, req *pb.ShouldChallengeWildDrawFourRequest,
 ) (*pb.ShouldChallengeWildDrawFourResponse, error) {
-	panic("TODO")
+	// Make sure color is the last wild color
+	p.dataLock.RLock()
+	lastEvent := p.lastEvent
+	p.dataLock.RUnlock()
+	if lastEvent == nil || lastEvent.Hand == nil || uint32(lastEvent.Hand.LastDiscardWildColor) != req.PrevColor {
+		return nil, fmt.Errorf("Invalid color")
+	}
+	// Ask
+	ctx, cancelFn := context.WithTimeout(ctx, maxIfaceHandleTime)
+	defer cancelFn()
+	var err error
+	resp := &pb.ShouldChallengeWildDrawFourResponse{}
+	if resp.Challenge, err = p.ui.ShouldChallengeWildDrawFour(); err != nil {
+		return nil, err
+	}
+	return resp, nil
 }
 
 func (p *handler) RevealCardsForChallenge(
