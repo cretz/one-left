@@ -65,7 +65,7 @@ func (c *Client) Run() error {
 	c.chLock.Lock()
 	if c.sendCh == nil {
 		c.chLock.Unlock()
-		return fmt.Errorf("Already running")
+		return fmt.Errorf("Already running or have run")
 	}
 	c.sendCh = make(chan *pb.HostMessage)
 	c.terminatingErrCh = make(chan error)
@@ -77,9 +77,7 @@ func (c *Client) Run() error {
 		c.chLock.Lock()
 		defer c.chLock.Unlock()
 		close(c.sendCh)
-		c.sendCh = nil
 		close(c.terminatingErrCh)
-		c.terminatingErrCh = nil
 		close(recvMsgCh)
 		close(recvErrCh)
 	}()
@@ -115,6 +113,7 @@ MainLoop:
 				c.reqRespLock.Lock()
 				rcpRespCh := c.receivedRespValCh
 				c.receivedRespValCh = nil
+				c.receivedRespErrCh = nil
 				c.reqRespLock.Unlock()
 				if rcpRespCh == nil {
 					err = fmt.Errorf("Sent RCP response without request")
@@ -128,8 +127,6 @@ MainLoop:
 		case err = <-recvErrCh:
 			break MainLoop
 		case err = <-c.terminatingErrCh:
-			// Before terminating, let's try to send an error
-			// TODO
 			break MainLoop
 		}
 	}

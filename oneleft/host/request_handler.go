@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cretz/bine/torutil/ed25519"
 	"github.com/cretz/one-left/oneleft/host/client"
 	"github.com/cretz/one-left/oneleft/host/game"
 	"github.com/cretz/one-left/oneleft/pb"
@@ -32,9 +33,6 @@ func (h *requestHandler) OnRun(c *client.Client) {
 	}
 	// TODO: warn on welcome error?
 }
-
-// TODO: config
-const maxChatContentLen = 500
 
 func utcTimestampMs() uint64 {
 	return uint64(time.Now().UnixNano()) / uint64(time.Millisecond)
@@ -74,18 +72,26 @@ func (h *requestHandler) OnChatMessage(c *client.Client, msg *pb.ChatMessage) {
 		return
 	}
 	msg.HostUtcMs = utcTimestampMs()
-	// Send it out to everyone
 	hostMsg := &pb.HostMessage{Message: &pb.HostMessage_ChatMessageAdded{ChatMessageAdded: msg}}
-	h.lock.RLock()
-	defer h.lock.RUnlock()
+	// Lock for the rest
+	h.lock.Lock()
+	defer h.lock.Unlock()
+	// Send it out to everyone
 	for _, client := range h.clients {
 		client.Client.SendNonBlocking(hostMsg)
 	}
+	// And copy-on-write add chat message
+	var newChatMessages []*pb.ChatMessage
+	if len(h.chatMessages) >= maxChatMessagesKept {
+		newChatMessages = make([]*pb.ChatMessage, len(h.chatMessages))
+		copy(newChatMessages, h.chatMessages[1:])
+	} else {
+		newChatMessages = make([]*pb.ChatMessage, len(h.chatMessages)+1)
+		copy(newChatMessages, h.chatMessages)
+	}
+	newChatMessages[len(newChatMessages)-1] = msg
+	h.chatMessages = newChatMessages
 }
-
-// TODO: config
-const randomNonceSize = 10
-const maxNameLen = 80
 
 func (h *requestHandler) OnStartJoin(c *client.Client) {
 	sendErr := func(str string) {
@@ -120,6 +126,9 @@ func (h *requestHandler) OnStartJoin(c *client.Client) {
 	if !bytes.Equal(joinReq.RandomNonce, info.Identity.RandomNonce) {
 		sendErr("Invalid nonce")
 		return
+	} else if len(info.Identity.Id) != ed25519.PublicKeySize {
+		sendErr("Invalid ID")
+		return
 	} else if !info.VerifyIdentity() {
 		sendErr("Invalid sig")
 		return
@@ -127,7 +136,7 @@ func (h *requestHandler) OnStartJoin(c *client.Client) {
 		sendErr("Invalid name size")
 		return
 	}
-	// Now lock the host and add and/or do other checks
+	// Now lock the host then do the rest
 	h.lock.Lock()
 	defer h.lock.Unlock()
 	// Check game not running again
@@ -145,27 +154,59 @@ func (h *requestHandler) OnStartJoin(c *client.Client) {
 		sendErr("Client no longer present or already a player")
 		return
 	}
-	// Check name uniqueness
+	// Check name and ID uniqueness
 	nameLower := strings.ToLower(info.Identity.Name)
 	for _, player := range h.gamePlayers {
 		if strings.ToLower(player.Identity.Name) == nameLower {
 			sendErr("Name taken")
 			return
 		}
+		if bytes.Equal(player.Identity.Id, info.Identity.Id) {
+			sendErr("ID taken")
+			return
+		}
 	}
 	// Add the player
 	h.clients[c.Num()] = info
-	h.protoPlayers = append(h.protoPlayers, info.Identity)
-	h.gamePlayers = append(h.gamePlayers, info)
+	// Proto players slice is copy-on-write
+	newProtoPlayers := make([]*pb.PlayerIdentity, len(h.protoPlayers)+1)
+	copy(newProtoPlayers, h.protoPlayers)
+	newProtoPlayers[len(newProtoPlayers)-1] = info.Identity
+	h.protoPlayers = newProtoPlayers
+	// Game players slice is copy-on-write
+	newGamePlayers := make([]*game.PlayerInfo, len(h.gamePlayers)+1)
+	copy(newGamePlayers, h.gamePlayers)
+	newGamePlayers[len(newGamePlayers)-1] = info
+	h.gamePlayers = newGamePlayers
 	// Send off the player updates
 	h.sendPlayerUpdatesUnsafe()
 }
 
 func (h *requestHandler) OnStop(c *client.Client) {
-	panic("TODO")
+	// We don't care if this is a player and we're in the game, we expect the game will stop somewhere else and nothing
+	// as part of the game should use the player sets.
+	// Lock for all of this
+	h.lock.Lock()
+	defer h.lock.Unlock()
+	info := h.clients[c.Num()]
+	delete(h.clients, c.Num())
+	delete(h.clientChatCounters, c.Num())
+	if info != nil && info.Identity != nil {
+		// Proto players slice is copy-on-write, so filter out the stopped client
+		newProtoPlayers := []*pb.PlayerIdentity{}
+		newGamePlayers := []*game.PlayerInfo{}
+		for _, existingInfo := range h.gamePlayers {
+			if !bytes.Equal(existingInfo.Identity.Id, info.Identity.Id) {
+				newProtoPlayers = append(newProtoPlayers, info.Identity)
+				newGamePlayers = append(newGamePlayers, info)
+			}
+		}
+		h.protoPlayers = newProtoPlayers
+		h.gamePlayers = newGamePlayers
+	}
 }
 
-// Unsagfe because it expects callers to lock
+// Unsafe because it expects callers to lock
 func (h *requestHandler) sendPlayerUpdatesUnsafe() {
 	msg := &pb.HostMessage{Message: &pb.HostMessage_PlayersUpdate{
 		PlayersUpdate: &pb.HostMessage_Players{Players: h.protoPlayers},

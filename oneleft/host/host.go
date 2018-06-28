@@ -11,7 +11,7 @@ import (
 
 type Host struct {
 	lock sync.RWMutex
-	// Map can be added or deleted from, but val is never mutated, always replaced
+	// Maps can be added or deleted from, but val is never mutated, always replaced
 	clients            map[uint64]*game.PlayerInfo
 	clientChatCounters map[uint64]uint32
 	// Never mutated, always replaced
@@ -28,6 +28,10 @@ type Host struct {
 // TODO config
 const maxClientRPCWait = 1 * time.Minute
 const maxPlayers = 10
+const maxChatMessagesKept = 50
+const randomNonceSize = 10
+const maxNameLen = 80
+const maxChatContentLen = 500
 
 func New() *Host {
 	return &Host{
