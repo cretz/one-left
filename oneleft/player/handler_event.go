@@ -3,6 +3,8 @@ package player
 import (
 	"context"
 
+	"github.com/cretz/one-left/oneleft/player/iface"
+
 	"github.com/cretz/one-left/oneleft/pb"
 )
 
@@ -18,4 +20,12 @@ func (p *handler) OnGameEvent(ctx context.Context, v *pb.HostMessage_GameEvent) 
 		p.dataLock.Unlock()
 		return p.ui.GameEvent(ctx, event)
 	}
+}
+
+func (p *handler) validateEvent(event *iface.GameEvent) error {
+	p.dataLock.RLock()
+	// lastEvent := p.lastEvent
+	p.dataLock.RUnlock()
+	// TODO
+	return nil
 }

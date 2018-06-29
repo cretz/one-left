@@ -188,6 +188,9 @@ func (d *deck) PopForFirstDiscard() (game.Card, error) {
 }
 
 func (d *deck) CompleteHand() (game.CardDeckHandCompleteReveal, error) {
+	d.game.dataLock.RLock()
+	lastEvent := d.game.lastEvent
+	d.game.dataLock.RUnlock()
 	// Find winner
 	winnerIndex := -1
 	for i, p := range d.game.players {
@@ -307,6 +310,10 @@ func (d *deck) CompleteHand() (game.CardDeckHandCompleteReveal, error) {
 			completeReveal.deckCards[i] = card
 			allCardsTogether = append(allCardsTogether, card)
 		}
+	}
+	// Add the discards to the all-card set
+	for _, discard := range lastEvent.Hand.DiscardStack {
+		allCardsTogether = append(allCardsTogether, game.Card(discard))
 	}
 	// Now sort the all the cards seen and make sure they exactly match the original set
 	sort.Slice(allCardsTogether, func(i, j int) bool { return allCardsTogether[i] < allCardsTogether[j] })

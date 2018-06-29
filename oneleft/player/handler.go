@@ -31,6 +31,7 @@ type handler struct {
 	lastGameStart                *pb.GameStartRequest
 	lastHandStart                *pb.HandStartRequest
 	lastHandEnd                  *pb.HandEndRequest
+	firstUnencryptedStartCards   []uint32
 	lastHandID                   uuid.UUID
 }
 

@@ -6,6 +6,7 @@ import (
 	"crypto/rand"
 	"fmt"
 	"math/big"
+	"sort"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/google/uuid"
@@ -55,6 +56,7 @@ func (p *handler) GameStart(ctx context.Context, req *pb.GameStartRequest) (*pb.
 	p.lastGameStart = req
 	p.lastHandStart = nil
 	p.lastHandEnd = nil
+	p.firstUnencryptedStartCards = nil
 	p.dataLock.Unlock()
 
 	ctx, cancelFn := context.WithTimeout(ctx, maxIfaceHandleTime)
@@ -167,8 +169,163 @@ func (p *handler) HandStart(ctx context.Context, req *pb.HandStartRequest) (*pb.
 }
 
 func (p *handler) HandEnd(ctx context.Context, req *pb.HandEndRequest) (*pb.HandEndResponse, error) {
-	// TODO: lock
-	panic("TODO")
+	// Return immediately on error or stage 0
+	resp, deckCards, playerCards, err := p.buildHandEnd(req)
+	if err != nil {
+		return nil, err
+	} else if req.Stage == 0 {
+		return resp, nil
+	}
+	// Stage 1, call downstream
+	ctx, cancelFn := context.WithTimeout(ctx, maxIfaceHandleTime)
+	defer cancelFn()
+	if err := p.ui.HandEnd(ctx, int(req.WinnerIndex), int(req.Score), deckCards, playerCards); err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
+func (p *handler) buildHandEnd(
+	req *pb.HandEndRequest,
+) (resp *pb.HandEndResponse, deckCards []game.Card, playerCards [][]game.Card, err error) {
+	// Lock the whole thing
+	p.dataLock.Lock()
+	defer p.dataLock.Unlock()
+	p.lastHandEnd = req
+	// Some validation
+	// Grab the winner index and confirm match
+	expectedWinnerIndex := -1
+	for i, cardsLeft := range p.lastEvent.Hand.PlayerCardsRemaining {
+		if cardsLeft == 0 {
+			if expectedWinnerIndex != -1 {
+				return nil, nil, nil, fmt.Errorf("Multiple players with no cards left")
+			}
+			expectedWinnerIndex = i
+		}
+	}
+	if expectedWinnerIndex == -1 || req.WinnerIndex != uint32(expectedWinnerIndex) {
+		return nil, nil, nil, fmt.Errorf("Did not find winner")
+	}
+	// Make sure we have the same encrypted deck cards
+	if len(p.encryptedDeckCards) != len(req.EncryptedDeckCards) {
+		return nil, nil, nil, fmt.Errorf("Deck card count mismatch")
+	}
+	for i, encCard := range p.encryptedDeckCards {
+		if !bytes.Equal(encCard.Bytes(), req.EncryptedDeckCards[i]) {
+			return nil, nil, nil, fmt.Errorf("Deck card mismatch")
+		}
+	}
+	// Different things based on stage
+	switch req.Stage {
+	case 0:
+		if req.Score != 0 || len(req.PlayerInfos) != 0 {
+			return nil, nil, nil, fmt.Errorf("Score or player info set on stage 0")
+		}
+		reveal := &pb.HandEndResponse_HandReveal{
+			EncryptedCardsInHand:   make([][]byte, len(p.myCards)),
+			UnencryptedCardsInHand: make([]uint32, len(p.myCards)),
+			CardDecryptionKeys:     make(map[string][]byte, len(p.cardPairs)),
+		}
+		for i, myCard := range p.myCards {
+			reveal.EncryptedCardsInHand[i] = myCard.encryptedCard.Bytes()
+			reveal.UnencryptedCardsInHand[i] = uint32(myCard.card)
+		}
+		for encCard, keyPair := range p.cardPairs {
+			reveal.CardDecryptionKeys[encCard] = keyPair.Dec.Bytes()
+		}
+		return &pb.HandEndResponse{Message: &pb.HandEndResponse_Reveal{Reveal: reveal}}, nil, nil, nil
+	case 1:
+		// Now that we have all of the player infos, we can validate a few other things like score
+		expectedScore := 0
+		allDecKeys := make(map[string][]*big.Int)
+		for _, playerInfo := range req.PlayerInfos {
+			for _, cardInt := range playerInfo.UnencryptedCardsInHand {
+				card := game.Card(cardInt)
+				if !card.Valid() {
+					return nil, nil, nil, fmt.Errorf("Invalid player card")
+				}
+				expectedScore += card.Score()
+			}
+			for encCard, decKey := range playerInfo.CardDecryptionKeys {
+				allDecKeys[encCard] = append(allDecKeys[encCard], new(big.Int).SetBytes(decKey))
+			}
+		}
+		if uint32(expectedScore) != req.Score {
+			return nil, nil, nil, fmt.Errorf("Score mismatch")
+		}
+		// Make sure all decryption keys are there, including validating mine came back
+		if len(allDecKeys) != len(p.cardPairs) {
+			return nil, nil, nil, fmt.Errorf("Player decryption key size mismatch")
+		}
+		// Decrypt everything
+		allDecCards := make(map[string]game.Card, len(allDecKeys))
+		for encCard, decKeys := range allDecKeys {
+			if len(decKeys) != len(p.lastGameStart.Players) {
+				return nil, nil, nil, fmt.Errorf("Card decryption key size mismatch")
+			}
+			if decKeys[p.myIndex].Cmp(p.cardPairs[encCard].Dec) != 0 {
+				return nil, nil, nil, fmt.Errorf("My card decryption key mismatch")
+			}
+			cardInt, ok := new(big.Int).SetString(encCard, 10)
+			if !ok {
+				return nil, nil, nil, fmt.Errorf("Invalid encrypted card")
+			}
+			for _, decKey := range decKeys {
+				cardInt = sra.DecryptInt(p.sharedPrime, decKey, cardInt)
+			}
+			card := game.Card(cardInt.Int64())
+			if !card.Valid() {
+				return nil, nil, nil, fmt.Errorf("Invalid decrypted card")
+			}
+			allDecCards[encCard] = card
+		}
+		// Get all known cards (don't use allDecCards, it can come from previous shuffles)
+		activeCards := append([]game.Card{}, p.lastEvent.Hand.DiscardStack...)
+		// Get deck cards and player cards
+		deckCards = make([]game.Card, len(p.encryptedDeckCards))
+		for i, encCard := range p.encryptedDeckCards {
+			card, ok := allDecCards[encCard.String()]
+			if !ok {
+				return nil, nil, nil, fmt.Errorf("Unable to find deck card")
+			}
+			deckCards[i] = card
+			activeCards = append(activeCards, card)
+		}
+		playerCards = make([][]game.Card, len(req.PlayerInfos))
+		for i, playerInfo := range req.PlayerInfos {
+			cards := make([]game.Card, len(playerInfo.EncryptedCardsInHand))
+			for j, encCard := range playerInfo.EncryptedCardsInHand {
+				// Confirm the decrypted card is what they say it is
+				card, ok := allDecCards[new(big.Int).SetBytes(encCard).String()]
+				if !ok {
+					return nil, nil, nil, fmt.Errorf("Unable to find player card")
+				} else if card != game.Card(playerInfo.UnencryptedCardsInHand[j]) {
+					return nil, nil, nil, fmt.Errorf("Invalid player card")
+				}
+				cards[j] = card
+				activeCards = append(activeCards, card)
+			}
+			playerCards[i] = cards
+		}
+		// Sort all cards and confirm they match the original set
+		sort.Slice(activeCards, func(i, j int) bool { return activeCards[i] < activeCards[j] })
+		if len(activeCards) != len(p.firstUnencryptedStartCards) {
+			return nil, nil, nil, fmt.Errorf("All cards size mismatch orig deck")
+		}
+		for i, card := range activeCards {
+			if uint32(card) != p.firstUnencryptedStartCards[i] {
+				return nil, nil, nil, fmt.Errorf("All cards mismatch orig deck")
+			}
+		}
+		// Return the sig
+		sig, err := p.player.signProto(req)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		return &pb.HandEndResponse{Message: &pb.HandEndResponse_Sig{Sig: sig}}, deckCards, playerCards, nil
+	default:
+		return nil, nil, nil, fmt.Errorf("Invalid stage")
+	}
 }
 
 func (p *handler) Shuffle(ctx context.Context, req *pb.ShuffleRequest) (*pb.ShuffleResponse, error) {
@@ -221,6 +378,10 @@ func (p *handler) Shuffle(ctx context.Context, req *pb.ShuffleRequest) (*pb.Shuf
 	// Do the stages
 	switch req.Stage {
 	case 0:
+		// If we don't have a set of start cards, put this there
+		if len(p.firstUnencryptedStartCards) == 0 {
+			p.firstUnencryptedStartCards = req.UnencryptedStartCards
+		}
 		// Create stage 0 pair
 		if p.shuffleStage0Pair, err = sra.GenerateKeyPair(rand.Reader, p.sharedPrime, sraKeyPairBits); err != nil {
 			return nil, err
