@@ -75,7 +75,39 @@ func (p *handler) GameStart(ctx context.Context, req *pb.GameStartRequest) (*pb.
 }
 
 func (p *handler) GameEnd(ctx context.Context, req *pb.GameEndRequest) (*pb.GameEndResponse, error) {
-	panic("TODO")
+	p.dataLock.RLock()
+	lastEvent := p.lastEvent
+	lastGameStart := p.lastGameStart
+	lastHandEnd := p.lastHandEnd
+	p.dataLock.RUnlock()
+	if lastEvent == nil || lastHandEnd == nil {
+		return nil, fmt.Errorf("Missing hand end")
+	}
+	// Make sure scores are what we saw last event (validation is deferred to event handling)
+	if len(lastEvent.PlayerScores) != len(req.PlayerScores) {
+		return nil, fmt.Errorf("Player score size mismatch")
+	}
+	for i, s := range lastEvent.PlayerScores {
+		if uint32(s) != req.PlayerScores[i] {
+			return nil, fmt.Errorf("Invalid player score")
+		}
+	}
+	// Check the sigs of all hand ends
+	if err := p.validateHandEndSigs(lastHandEnd, lastGameStart, req.LastHandEndPlayerSigs); err != nil {
+		return nil, err
+	}
+	// Make game end sig
+	sig, err := p.player.signProto(req)
+	if err != nil {
+		return nil, err
+	}
+	// Call downstream
+	ctx, cancelFn := context.WithTimeout(ctx, maxIfaceHandleTime)
+	defer cancelFn()
+	if err := p.ui.GameEnd(ctx, lastEvent.PlayerScores); err != nil {
+		return nil, err
+	}
+	return &pb.GameEndResponse{Sig: sig}, nil
 }
 
 func (p *handler) HandStart(ctx context.Context, req *pb.HandStartRequest) (*pb.HandStartResponse, error) {
@@ -141,17 +173,8 @@ func (p *handler) HandStart(ctx context.Context, req *pb.HandStartRequest) (*pb.
 	}
 	// Check hand start sigs
 	if lastHandEnd != nil {
-		if len(req.LastHandEndPlayerSigs) != len(lastGameStart.Players) {
-			return nil, fmt.Errorf("Invalid hand end sigs")
-		}
-		handEndBytes, err := proto.Marshal(lastHandEnd)
-		if err != nil {
-			return nil, fmt.Errorf("Failed marshalling: %v", err)
-		}
-		for i, sig := range req.LastHandEndPlayerSigs {
-			if !lastGameStart.Players[i].VerifySig(handEndBytes, sig) {
-				return nil, fmt.Errorf("Invalid hand end sig")
-			}
+		if err := p.validateHandEndSigs(lastHandEnd, lastGameStart, req.LastHandEndPlayerSigs); err != nil {
+			return nil, err
 		}
 	}
 	// Build response
@@ -166,6 +189,25 @@ func (p *handler) HandStart(ctx context.Context, req *pb.HandStartRequest) (*pb.
 		return nil, err
 	}
 	return resp, nil
+}
+
+func (p *handler) validateHandEndSigs(
+	lastHandEnd *pb.HandEndRequest, lastGameStart *pb.GameStartRequest, handEndSigs [][]byte,
+) error {
+
+	if len(handEndSigs) != len(lastGameStart.Players) {
+		return fmt.Errorf("Invalid hand end sigs")
+	}
+	handEndBytes, err := proto.Marshal(lastHandEnd)
+	if err != nil {
+		return fmt.Errorf("Failed marshalling: %v", err)
+	}
+	for i, sig := range handEndSigs {
+		if !lastGameStart.Players[i].VerifySig(handEndBytes, sig) {
+			return fmt.Errorf("Invalid hand end sig")
+		}
+	}
+	return nil
 }
 
 func (p *handler) HandEnd(ctx context.Context, req *pb.HandEndRequest) (*pb.HandEndResponse, error) {
